@@ -2,7 +2,7 @@
 // Este arquivo cria a ponte entre a aplicação PHP e o banco PostgreSQL.
 // Em termos simples: ele diz ao PHP "use este endereço, este usuário, esta senha e este banco".
 // Se tudo estiver certo, a aplicação consegue salvar e consultar dados do sistema.
-$host = getenv('DB_HOST') ?: '127.0.0.1';
+$host = getenv('DB_HOST') ?: '192.168.10.52';
 $port = getenv('DB_PORT') ?: '5432';
 $dbname = getenv('DB_NAME') ?: 'hightech_school';
 $user = getenv('DB_USER') ?: 'admin_school';
