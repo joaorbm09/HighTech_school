@@ -58,23 +58,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['acao'] ?? '') !== 'cancela
 }
 
 // Carrega as opções dos formulários e os dados do relatório de matrículas.
-$alunos = $conexao
-    ? $conexao->query('SELECT id, nome, email FROM alunos ORDER BY nome')->fetchAll()
-    : [];
-$cursos = $conexao
-    ? $conexao->query('SELECT id, nome FROM cursos ORDER BY nome')->fetchAll()
-    : [];
-$matriculas = $conexao
-    ? $conexao->query(
-        'SELECT m.id, m.data_matricula, m.status,
-                a.nome AS aluno_nome, a.email AS aluno_email, a.turma,
-                c.nome AS curso_nome, c.categoria AS curso_categoria
-         FROM matriculas m
-         JOIN alunos a ON a.id = m.id_aluno
-         JOIN cursos c ON c.id = m.id_curso
-         ORDER BY m.id DESC'
-    )->fetchAll()
-    : [];
+// A mesma regra vale aqui: se o banco não estiver pronto, a página não deve explodir com um erro fatal.
+$alunos = [];
+$cursos = [];
+$matriculas = [];
+if ($conexao) {
+    try {
+        $alunos = $conexao->query('SELECT id, nome, email FROM alunos ORDER BY nome')->fetchAll();
+        $cursos = $conexao->query('SELECT id, nome FROM cursos ORDER BY nome')->fetchAll();
+        $matriculas = $conexao->query(
+            'SELECT m.id, m.data_matricula, m.status,
+                    a.nome AS aluno_nome, a.email AS aluno_email, a.turma,
+                    c.nome AS curso_nome, c.categoria AS curso_categoria
+             FROM matriculas m
+             JOIN alunos a ON a.id = m.id_aluno
+             JOIN cursos c ON c.id = m.id_curso
+             ORDER BY m.id DESC'
+        )->fetchAll();
+    } catch (PDOException $e) {
+        error_log('Erro ao carregar dados de matrículas: ' . $e->getMessage());
+        $alunos = [];
+        $cursos = [];
+        $matriculas = [];
+        $mensagem = '<div class="alert alert-danger">Não foi possível carregar os dados de matrículas. Verifique se as tabelas de alunos, cursos e matrículas existem no banco correto.</div>';
+    }
+}
 ?>
 
 <!DOCTYPE html>

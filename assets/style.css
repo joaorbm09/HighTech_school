@@ -61,10 +61,14 @@ a {
 .nav-links a {
     padding: 4px 0;
     text-decoration: none;
+    color: #1d3557;
+    font-weight: 600;
 }
 
 .nav-user {
     margin-left: auto;
+    color: #1d3557;
+    font-weight: 700;
 }
 
 /* Larguras, cartões e grades usados no conteúdo das páginas. */

@@ -12,9 +12,19 @@ $mensagem = '';
 $aula_edicao = null;
 
 // Carrega os cursos existentes para aparecerem em um seletor na tela.
-$cursos = $conexao
-    ? $conexao->query('SELECT id, nome, ativo FROM cursos ORDER BY nome ASC')->fetchAll()
-    : false;
+// Se o banco estiver apontando para a base errada ou ainda não tiver o schema importado,
+// a consulta pode falhar. Em vez de explodir em erro 500, capturamos a exceção e mostramos
+// uma mensagem amigável para o administrador.
+$cursos = false;
+if ($conexao) {
+    try {
+        $cursos = $conexao->query('SELECT id, nome, ativo FROM cursos ORDER BY nome ASC')->fetchAll();
+    } catch (PDOException $e) {
+        error_log('Erro ao carregar cursos para gerenciamento de aulas: ' . $e->getMessage());
+        $cursos = false;
+        $erro = 'Não foi possível carregar os cursos. Verifique se o banco está conectado corretamente e se o schema da aplicação foi importado.';
+    }
+}
 
 // Lê o curso selecionado pela URL ou pelo formulário.
 $id_curso_raw = $_SERVER['REQUEST_METHOD'] === 'POST'
@@ -31,7 +41,7 @@ $id_curso = filter_var(
 if (!$conexao) {
     http_response_code(503);
     $erro = 'Não foi possível conectar ao banco de dados. Tente novamente mais tarde.';
-} elseif ($cursos === false) {
+} elseif ($cursos === false && $erro === '') {
     http_response_code(500);
     $erro = 'Não foi possível carregar os cursos.';
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -69,11 +79,17 @@ if (!$conexao) {
                 );
                 $aula = false;
                 if ($id_aula) {
-                    $stmt = $conexao->prepare(
-                        'SELECT id, id_curso, ativa FROM aulas WHERE id = :id'
-                    );
-                    $stmt->execute(['id' => $id_aula]);
-                    $aula = $stmt->fetch();
+                    try {
+                        $stmt = $conexao->prepare(
+                            'SELECT id, id_curso, ativa FROM aulas WHERE id = :id'
+                        );
+                        $stmt->execute(['id' => $id_aula]);
+                        $aula = $stmt->fetch();
+                    } catch (PDOException $e) {
+                        error_log('Erro ao buscar aula para alteração de publicação: ' . $e->getMessage());
+                        http_response_code(500);
+                        $erro = 'Não foi possível consultar a aula. Verifique a conexão com o banco e se a tabela de aulas existe.';
+                    }
                 }
 
                 if (!$aula || (int) $aula['id_curso'] !== $id_curso) {
@@ -85,21 +101,27 @@ if (!$conexao) {
                         ['1', 't', 'true', 'yes'],
                         true
                     );
-                    $stmt = $conexao->prepare(
-                        'UPDATE aulas SET ativa = :ativa WHERE id = :id AND id_curso = :id_curso'
-                    );
-                    if ($stmt->execute([
-                        'ativa' => !$aula_ativa,
-                        'id' => $id_aula,
-                        'id_curso' => $id_curso
-                    ])) {
-                        $_SESSION['flash_aulas_admin'] = $aula_ativa
-                            ? 'Aula ocultada. O progresso já registrado pelos alunos foi preservado.'
-                            : 'Aula publicada para os alunos matriculados.';
-                        header('Location: gerenciar_aulas.php?curso_id=' . $id_curso);
-                        exit;
+                    try {
+                        $stmt = $conexao->prepare(
+                            'UPDATE aulas SET ativa = :ativa WHERE id = :id AND id_curso = :id_curso'
+                        );
+                        $stmt->bindValue('ativa', !$aula_ativa, PDO::PARAM_BOOL);
+                        $stmt->bindValue('id', $id_aula, PDO::PARAM_INT);
+                        $stmt->bindValue('id_curso', $id_curso, PDO::PARAM_INT);
+                        $stmt->execute();
+                        if ($stmt->rowCount() > 0) {
+                            $_SESSION['flash_aulas_admin'] = $aula_ativa
+                                ? 'Aula ocultada. O progresso já registrado pelos alunos foi preservado.'
+                                : 'Aula publicada para os alunos matriculados.';
+                            header('Location: gerenciar_aulas.php?curso_id=' . $id_curso);
+                            exit;
+                        }
+                        $erro = 'Não foi possível alterar a publicação da aula.';
+                    } catch (PDOException $e) {
+                        error_log('Erro ao alterar publicação da aula: ' . $e->getMessage());
+                        http_response_code(500);
+                        $erro = 'Não foi possível alterar a publicação da aula.';
                     }
-                    $erro = 'Não foi possível alterar a publicação da aula.';
                 }
             } elseif ($acao === 'salvar_aula') {
                 // Aqui o sistema recebe o formulário de cadastro/edição da aula.
@@ -138,12 +160,18 @@ if (!$conexao) {
                 } else {
                     $aula_atual = null;
                     if ($id_aula !== null) {
-                        $stmt = $conexao->prepare(
-                            'SELECT id FROM aulas WHERE id = :id AND id_curso = :id_curso'
-                        );
-                        $stmt->execute(['id' => $id_aula, 'id_curso' => $id_curso]);
-                        $aula_atual = $stmt->fetch();
-                        if (!$aula_atual) {
+                        try {
+                            $stmt = $conexao->prepare(
+                                'SELECT id FROM aulas WHERE id = :id AND id_curso = :id_curso'
+                            );
+                            $stmt->execute(['id' => $id_aula, 'id_curso' => $id_curso]);
+                            $aula_atual = $stmt->fetch();
+                        } catch (PDOException $e) {
+                            error_log('Erro ao localizar aula para edição: ' . $e->getMessage());
+                            $aula_atual = null;
+                            $erro = 'Não foi possível localizar a aula no banco. Verifique a conexão e a estrutura do banco de dados.';
+                        }
+                        if ($aula_atual === null && $erro === '') {
                             http_response_code(404);
                             $erro = 'A aula que você tentou editar não foi encontrada.';
                         }
@@ -157,15 +185,14 @@ if (!$conexao) {
                                      (id_curso, titulo, descricao, conteudo, video_url, ordem, obrigatoria)
                                      VALUES (:id_curso, :titulo, :descricao, :conteudo, :video_url, :ordem, :obrigatoria)'
                                 );
-                                $stmt->execute([
-                                    'id_curso' => $id_curso,
-                                    'titulo' => $titulo,
-                                    'descricao' => $descricao,
-                                    'conteudo' => $conteudo,
-                                    'video_url' => $video_url,
-                                    'ordem' => $ordem,
-                                    'obrigatoria' => $obrigatoria
-                                ]);
+                                $stmt->bindValue('id_curso', $id_curso, PDO::PARAM_INT);
+                                $stmt->bindValue('titulo', $titulo);
+                                $stmt->bindValue('descricao', $descricao);
+                                $stmt->bindValue('conteudo', $conteudo);
+                                $stmt->bindValue('video_url', $video_url);
+                                $stmt->bindValue('ordem', $ordem, PDO::PARAM_INT);
+                                $stmt->bindValue('obrigatoria', $obrigatoria, PDO::PARAM_BOOL);
+                                $stmt->execute();
                                 $resultado = 'created';
                             } else {
                                 $stmt = $conexao->prepare(
@@ -175,16 +202,15 @@ if (!$conexao) {
                                          ordem = :ordem, obrigatoria = :obrigatoria
                                      WHERE id = :id AND id_curso = :id_curso'
                                 );
-                                $stmt->execute([
-                                    'titulo' => $titulo,
-                                    'descricao' => $descricao,
-                                    'conteudo' => $conteudo,
-                                    'video_url' => $video_url,
-                                    'ordem' => $ordem,
-                                    'obrigatoria' => $obrigatoria,
-                                    'id' => $id_aula,
-                                    'id_curso' => $id_curso
-                                ]);
+                                $stmt->bindValue('titulo', $titulo);
+                                $stmt->bindValue('descricao', $descricao);
+                                $stmt->bindValue('conteudo', $conteudo);
+                                $stmt->bindValue('video_url', $video_url);
+                                $stmt->bindValue('ordem', $ordem, PDO::PARAM_INT);
+                                $stmt->bindValue('obrigatoria', $obrigatoria, PDO::PARAM_BOOL);
+                                $stmt->bindValue('id', $id_aula, PDO::PARAM_INT);
+                                $stmt->bindValue('id_curso', $id_curso, PDO::PARAM_INT);
+                                $stmt->execute();
                                 $resultado = $stmt->rowCount() > 0 ? 'updated' : 'unchanged';
                             }
                         } catch (PDOException $e) {
@@ -263,17 +289,23 @@ if ($conexao && $cursos && $id_curso !== false && $id_curso !== null) {
         $erro = 'O curso selecionado não existe.';
     }
     if ($curso_selecionado) {
-        $stmt = $conexao->prepare(
-            'SELECT id, id_curso, titulo, descricao, conteudo, video_url,
-                    ordem, obrigatoria, ativa
-             FROM aulas
-             WHERE id_curso = :id_curso
-             ORDER BY ordem ASC, id ASC'
-        );
-        $stmt->execute(['id_curso' => $id_curso]);
-        $aulas = $stmt->fetchAll();
-        foreach ($aulas as $aula) {
-            $proxima_ordem = max($proxima_ordem, (int) $aula['ordem'] + 1);
+        try {
+            $stmt = $conexao->prepare(
+                'SELECT id, id_curso, titulo, descricao, conteudo, video_url,
+                        ordem, obrigatoria, ativa
+                 FROM aulas
+                 WHERE id_curso = :id_curso
+                 ORDER BY ordem ASC, id ASC'
+            );
+            $stmt->execute(['id_curso' => $id_curso]);
+            $aulas = $stmt->fetchAll();
+            foreach ($aulas as $aula) {
+                $proxima_ordem = max($proxima_ordem, (int) $aula['ordem'] + 1);
+            }
+        } catch (PDOException $e) {
+            error_log('Erro ao carregar aulas do curso: ' . $e->getMessage());
+            $aulas = false;
+            $erro = 'Não foi possível listar as aulas deste curso. Verifique a conexão com o banco e se a tabela de aulas foi criada corretamente.';
         }
     }
 }
@@ -290,12 +322,18 @@ if (!$aula_edicao && isset($_GET['editar'])) {
         http_response_code(400);
         $erro = 'A aula informada para edição é inválida.';
     } elseif ($conexao) {
-        $stmt = $conexao->prepare(
-            'SELECT * FROM aulas WHERE id = :id AND id_curso = :id_curso'
-        );
-        $stmt->execute(['id' => $id_edicao, 'id_curso' => $id_curso]);
-        $aula_edicao = $stmt->fetch();
-        if (!$aula_edicao) {
+        try {
+            $stmt = $conexao->prepare(
+                'SELECT * FROM aulas WHERE id = :id AND id_curso = :id_curso'
+            );
+            $stmt->execute(['id' => $id_edicao, 'id_curso' => $id_curso]);
+            $aula_edicao = $stmt->fetch();
+        } catch (PDOException $e) {
+            error_log('Erro ao buscar aula para edição: ' . $e->getMessage());
+            $aula_edicao = null;
+            $erro = 'Não foi possível abrir a aula para edição. Verifique se o banco está acessível e se a tabela de aulas existe.';
+        }
+        if (!$aula_edicao && $erro === '') {
             http_response_code(404);
             $aula_edicao = null;
             $erro = 'A aula solicitada não pertence ao curso selecionado.';

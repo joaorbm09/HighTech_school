@@ -16,8 +16,8 @@ $usuario = obterUsuarioLogado();
 </header>
 <nav class="site-nav">
     <div class="container nav-links">
-        <!-- As opções administrativas só aparecem para usuários com perfil admin. -->
-        <a href="<?php echo $baseUrl; ?>aplicacao.php">Cursos</a>
+        <!-- A página inicial do sistema fica como início; a gestão fica em blocos específicos. -->
+        <a href="<?php echo $baseUrl; ?>aplicacao.php">Início</a>
         <?php if ($usuario && $usuario['perfil'] === 'admin'): ?>
             <a href="<?php echo $baseUrl; ?>app/usuarios.php">Usuários</a>
             <a href="<?php echo $baseUrl; ?>app/alunos.php">Alunos</a>

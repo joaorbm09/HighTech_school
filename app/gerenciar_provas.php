@@ -7,9 +7,15 @@ require_once __DIR__ . '/../includes/functions.php';
 $erro = '';
 $mensagem = '';
 $questao_edicao = null;
-$cursos = $conexao
-    ? $conexao->query('SELECT id, nome, ativo FROM cursos ORDER BY nome ASC')->fetchAll()
-    : false;
+$cursos = false;
+if ($conexao) {
+    try {
+        $cursos = $conexao->query('SELECT id, nome, ativo FROM cursos ORDER BY nome ASC')->fetchAll();
+    } catch (PDOException $e) {
+        error_log('Erro ao carregar cursos para gestão de provas: ' . $e->getMessage());
+        $cursos = false;
+    }
+}
 $id_curso_raw = $_SERVER['REQUEST_METHOD'] === 'POST'
     ? ($_POST['id_curso'] ?? '')
     : ($_GET['curso_id'] ?? '');

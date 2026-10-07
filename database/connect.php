@@ -2,7 +2,7 @@
 // Este arquivo cria a ponte entre a aplicação PHP e o banco PostgreSQL.
 // Em termos simples: ele diz ao PHP "use este endereço, este usuário, esta senha e este banco".
 // Se tudo estiver certo, a aplicação consegue salvar e consultar dados do sistema.
-$host = getenv('DB_HOST') ?: '192.168.10.52';
+$host = getenv('DB_HOST') ?: '127.0.0.1';
 $port = getenv('DB_PORT') ?: '5432';
 $dbname = getenv('DB_NAME') ?: 'hightech_school';
 $user = getenv('DB_USER') ?: 'admin_school';
@@ -23,25 +23,37 @@ try {
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
         ]
     );
-
-    // Depois que a conexão funciona, garantimos que exista um usuário administrador padrão.
-    // Isso facilita muito a vida em ambiente local de desenvolvimento e testes.
-    // A senha é transformada em hash antes de ser salva, para não deixar a senha em texto puro.
-    $admin_hash = password_hash($admin_password, PASSWORD_BCRYPT);
-    $stmt = $conexao->prepare(
-        "INSERT INTO usuarios (nome, email, senha, perfil)
-         VALUES ('Administrador', LOWER(:email), :senha, 'admin')
-         ON CONFLICT (email) DO UPDATE
-         SET nome = EXCLUDED.nome,
-             senha = EXCLUDED.senha,
-             perfil = 'admin'"
-    );
-    $stmt->bindValue(':email', strtolower(trim($admin_email)));
-    $stmt->bindValue(':senha', $admin_hash);
-    $stmt->execute();
 } catch (PDOException $e) {
     // Se a conexão falhar, o PHP grava a mensagem no log do servidor e não expõe dados sensíveis para o usuário.
     // Isso é importante porque não queremos mostrar o endereço real do banco ou a senha no navegador.
     error_log('Erro de conexão com o PostgreSQL: ' . $e->getMessage());
     $conexao = null;
+}
+
+// Cria o administrador padrão somente quando ele ainda não existe.
+// Assim, a aplicação não redefine a senha de um administrador a cada página visitada.
+if ($conexao) {
+    try {
+        $email_admin_normalizado = strtolower(trim($admin_email));
+        $stmt = $conexao->prepare(
+            'SELECT 1 FROM usuarios WHERE LOWER(email) = :email LIMIT 1'
+        );
+        $stmt->execute(['email' => $email_admin_normalizado]);
+
+        if (!$stmt->fetchColumn()) {
+            $admin_hash = password_hash($admin_password, PASSWORD_BCRYPT);
+            $stmt = $conexao->prepare(
+                "INSERT INTO usuarios (nome, email, senha, perfil)
+                 VALUES ('Administrador', :email, :senha, 'admin')
+                 ON CONFLICT (email) DO NOTHING"
+            );
+            $stmt->execute([
+                'email' => $email_admin_normalizado,
+                'senha' => $admin_hash
+            ]);
+        }
+    } catch (PDOException $e) {
+        // Uma falha ao criar a conta padrão não deve apagar uma conexão válida com o banco.
+        error_log('Erro ao verificar/criar administrador padrão: ' . $e->getMessage());
+    }
 }

@@ -50,10 +50,10 @@ Abra um terminal e execute:
 
 ```bash
 # Clona o repositório do projeto.
-git clone https://github.com/joaorbm09/HighTech.git
+git clone https://github.com/joaorbm09/HighTech_school.git
 
 # Entra na pasta criada pelo Git.
-cd HighTech
+cd HighTech_school
 ```
 
 ### Passo 2: Criar o banco de dados
@@ -82,17 +82,32 @@ Em uma instalação existente, prefira aplicar somente a migração do fluxo edu
 psql -U postgres -d hightech_school -f database/migrations/20261002_learning_flow.sql
 ```
 
-Esse comando pede ao PostgreSQL para conectar ao banco `hightech_school` como o usuário `postgres` e executar o arquivo SQL. Se o seu banco ou usuário tiver outro nome, troque esses valores pelo que você usa no pgAdmin.
+Esse comando pede ao PostgreSQL para conectar ao banco `hightech_school` como o usuário `postgres` e executar o arquivo SQL. Se o seu banco ou usuário tiver outro nome, troque esses valores pelos do seu ambiente remoto.
 
-#### Aplicar pelo pgAdmin
+> Importante: neste projeto, a execução do banco será feita preferencialmente pelo terminal/SSH, porque o professor vai seguir o passo a passo em um servidor de avaliação. O uso do pgAdmin não é obrigatório e não deve ser considerado parte do processo principal.
 
-1. Abra o **pgAdmin** e conecte-se ao servidor PostgreSQL.
-2. No navegador à esquerda, expanda **Servers → seu servidor → Databases** e clique uma vez no banco da aplicação (por exemplo, `hightech_school`). Confirme que selecionou o banco certo antes de executar qualquer script.
-3. Clique com o botão direito nesse banco e escolha **Query Tool**.
-4. No Query Tool, use **Open File** e selecione o arquivo `database/migrations/20261002_learning_flow.sql` dentro da pasta do projeto.
-5. Confira que o Query Tool continua conectado ao banco da aplicação e pressione **F5** (ou clique no botão **Execute**).
-6. O painel de mensagens deve indicar que os comandos `CREATE TABLE` foram executados. Esse arquivo só cria as tabelas novas — não apaga nem recarrega os dados de cursos, alunos ou matrículas.
-7. Para confirmar, execute esta consulta no mesmo Query Tool:
+#### Aplicar pelo terminal (recomendado)
+
+1. Acesse o servidor ou máquina local pelo terminal.
+2. Entre na pasta do projeto:
+
+```bash
+cd /caminho/para/o/projeto/hightech_school
+```
+
+3. Execute o arquivo SQL com o comando abaixo:
+
+```bash
+psql -U postgres -d hightech_school -f database/schema.sql
+```
+
+4. Se o objetivo for apenas aplicar uma migração específica, use o arquivo correspondente e confirme o banco antes de executar:
+
+```bash
+psql -U postgres -d hightech_school -f database/migrations/20261002_learning_flow.sql
+```
+
+5. Para confirmar que as tabelas foram criadas, execute:
 
 ```sql
 SELECT table_name
@@ -110,7 +125,7 @@ WHERE table_schema = 'public'
 ORDER BY table_name;
 ```
 
-O resultado deve listar as sete tabelas. Se uma tabela não aparecer, confira se o Query Tool estava no banco correto e se ele já tinha as tabelas `cursos` e `matriculas`.
+O resultado deve listar as tabelas. Se uma tabela não aparecer, confira se o comando foi executado no banco correto.
 
 Não é necessário executar `database/schema.sql` novamente em uma instalação existente: esse arquivo também insere dados de demonstração. A migração é a opção específica e mais segura para acrescentar o fluxo educacional ao banco que você já usa.
 
@@ -139,11 +154,13 @@ ON CONFLICT (id_curso, ordem) DO NOTHING;
 
 A aplicação lê as configurações em `database/connect.php`. Você pode definir variáveis de ambiente no seu sistema ou ajustar diretamente as variáveis no arquivo:
 
-- `DB_HOST`: Endereço do servidor PostgreSQL (padrão: `192.168.10.52` ou `localhost`).
+- `DB_HOST`: Endereço do servidor PostgreSQL (padrão: `127.0.0.1`).
 - `DB_PORT`: Porta do servidor (padrão: `5432`).
 - `DB_NAME`: Nome da base de dados (padrão: `hightech_school`).
-- `DB_USER`: Usuário do banco (padrão: `admin` ou `postgres`).
-- `DB_PASS`: Senha do usuário do banco.
+- `DB_USER`: Usuário do banco (padrão: `admin_school`).
+- `DB_PASS`: Senha do usuário do banco (padrão: `admin123`; altere em ambientes reais).
+- `APP_ADMIN_EMAIL`: E-mail da conta administrativa padrão (padrão: `admin@hightech.com`).
+- `APP_ADMIN_PASSWORD`: Senha da conta administrativa padrão (padrão: `admin123`).
 
 Confirme que os módulos necessários estão habilitados:
 
@@ -173,13 +190,150 @@ O `index.php` redireciona para `portal_empresa.php`.
 
 1. Acesse `http://localhost:8000/login/cadastrar.php` e use a opção **Cadastrar-se** para criar uma conta de aluno. O formulário cria a conta de usuário e o registro acadêmico correspondente.
 2. Por padrão, todas as contas criadas pelo formulário público recebem o perfil `aluno`.
-3. **Para promover um usuário a Administrador**, execute no pgAdmin ou psql:
+3. **Para promover um usuário a Administrador**, execute via terminal (psql):
 
 ```sql
 UPDATE usuarios SET perfil = 'admin' WHERE email = 'seu_email@exemplo.com';
 ```
 
 Com o perfil `admin`, novos menus de gestão serão liberados no cabeçalho: **Gestão Alunos**, **Gestão Cursos**, **Gestão de Aulas**, **Gestão de Provas** e **Matrículas**.
+
+---
+
+## Guia de execução no servidor de avaliação (MobaXterm / SSH)
+
+Se a aplicação for apresentada em um ambiente de avaliação acessado via MobaXterm ou SSH, siga exatamente este passo a passo para garantir que a execução ocorra sem erros.
+
+### 1. Conectar ao servidor
+
+No MobaXterm, use o terminal para entrar no servidor:
+
+```bash
+ssh usuario@ip_do_servidor
+```
+
+Exemplo:
+
+```bash
+ssh aluno@192.168.0.10
+```
+
+### 2. Verificar o ambiente
+
+```bash
+php -v
+psql --version
+```
+
+Se o PHP ou PostgreSQL não estiverem instalados, execute:
+
+```bash
+sudo apt update
+sudo apt install php php-pgsql postgresql postgresql-contrib
+```
+
+### 3. Criar o banco e o usuário do sistema
+
+Entre como usuário do PostgreSQL:
+
+```bash
+sudo -u postgres psql
+```
+
+Dentro do console, execute:
+
+```sql
+CREATE DATABASE hightech_school;
+CREATE USER admin_school WITH PASSWORD 'admin123';
+GRANT ALL PRIVILEGES ON DATABASE hightech_school TO admin_school;
+\q
+```
+
+### 4. Importar o schema da aplicação
+
+No diretório do projeto, rode:
+
+```bash
+cd /home/seu-usuario/hightech_school
+psql -U postgres -d hightech_school -f database/schema.sql
+```
+
+Esse comando cria todas as tabelas do sistema: `usuarios`, `alunos`, `cursos`, `matriculas`, `aulas`, `provas`, `questoes_prova`, `alternativas_prova`, `tentativas_prova` e `certificados`.
+
+### 5. Validar o usuário da aplicação
+
+Teste a conexão do usuário empregado pela aplicação:
+
+```bash
+psql -U admin_school -d hightech_school -c "SELECT 1;"
+```
+
+Se o retorno for `1`, a conexão está correta.
+
+### 6. Verificar o arquivo de conexão
+
+Abra o arquivo `database/connect.php` e confirme o conteúdo:
+
+```php
+$host = getenv('DB_HOST') ?: '127.0.0.1';
+$port = getenv('DB_PORT') ?: '5432';
+$dbname = getenv('DB_NAME') ?: 'hightech_school';
+$user = getenv('DB_USER') ?: 'admin_school';
+$password = getenv('DB_PASS') ?: 'admin123';
+```
+
+Se o ambiente usa outro host ou outro banco, ajuste antes da execução.
+
+### 7. Iniciar a aplicação no servidor
+
+Opção 1 — usando o servidor embutido do PHP:
+
+```bash
+cd /home/seu-usuario/hightech_school
+php -S 0.0.0.0:8000
+```
+
+Em seguida, acesse no navegador:
+
+```text
+http://<IP_DO_SERVIDOR>:8000
+```
+
+Opção 2 — usando Apache/Nginx:
+
+```bash
+sudo cp -r /home/seu-usuario/hightech_school /var/www/html/
+```
+
+Depois acesse:
+
+```text
+http://<IP_DO_SERVIDOR>/hightech_school
+```
+
+### 8. Login administrativo padrão
+
+As credenciais padrão do sistema são:
+
+- e-mail: `admin@hightech.com`
+- senha: `admin123`
+
+Se esse usuário não existir no banco, o arquivo `database/connect.php` cria a conta na primeira conexão. Depois disso, a aplicação preserva a senha existente, em vez de redefini-la a cada página visitada. Em um ambiente real, configure `APP_ADMIN_EMAIL` e `APP_ADMIN_PASSWORD` antes da primeira conexão.
+
+### 9. Checklist final
+
+Antes da apresentação, valide todos os itens abaixo:
+
+- [ ] PHP instalado;
+- [ ] PostgreSQL instalado;
+- [ ] banco `hightech_school` criado;
+- [ ] schema importado com sucesso;
+- [ ] usuário `admin_school` criado e com permissão;
+- [ ] `database/connect.php` com dados corretos;
+- [ ] servidor iniciado;
+- [ ] página inicial carregando;
+- [ ] login admin funcionando;
+- [ ] gestão de cursos e aulas acessível.
 
 ---
 

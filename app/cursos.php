@@ -94,9 +94,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['acao'] ?? '') !== 'excluir
 }
 
 // Carrega os cursos para a tabela de administração.
-$cursos = $conexao
-    ? $conexao->query('SELECT * FROM cursos ORDER BY id ASC')->fetchAll()
-    : [];
+// Qualquer falha de banco é convertida em uma mensagem amigável para não quebrar a tela administrativa.
+$cursos = [];
+if ($conexao) {
+    try {
+        $cursos = $conexao->query('SELECT * FROM cursos ORDER BY id ASC')->fetchAll();
+    } catch (PDOException $e) {
+        error_log('Erro ao listar cursos: ' . $e->getMessage());
+        $cursos = [];
+        $mensagem = '<div class="alert alert-danger">Não foi possível carregar os cursos. Verifique a conexão com o banco e a existência da tabela de cursos.</div>';
+    }
+}
 ?>
 
 <!DOCTYPE html>
@@ -116,13 +124,22 @@ $cursos = $conexao
 <main class="container">
         
         <h2>Gestão de Cursos (Área Restrita - Admin)</h2>
-        <p>Gerencie o catálogo de cursos oferecidos pela HighTech School.</p>
+        <p>Esta área é a parte de administração do catálogo. Use a seção de início para visualizar os cursos ativos e a seção de cadastro para adicionar ou editar cursos.</p>
 
 <?php echo $mensagem; ?>
 
 <div class="admin-card">
             
-            <h3><?php echo $curso_edicao ? 'Editar Curso (ID: ' . htmlspecialchars($curso_edicao['id']) . ')' : 'Cadastrar Novo Curso'; ?></h3>
+            <h3>Início - Catálogo atual</h3>
+            <p>Lista dos cursos cadastrados no sistema.</p>
+            <br>
+            <p><strong>Observação:</strong> esta seção é a visão geral do início. A parte de cadastro fica separada abaixo.</p>
+        </div>
+
+<div class="admin-card">
+
+            <h3><?php echo $curso_edicao ? 'Editar Curso (ID: ' . htmlspecialchars($curso_edicao['id']) . ')' : 'Adicionar / editar curso'; ?></h3>
+            <p>Use este formulário para cadastrar um novo curso ou alterar um curso existente.</p>
             <br>
             
             <form action="cursos.php" method="post">

@@ -69,6 +69,33 @@ function buscarUsuarioPorEmail($conexao, $email) {
 
 
 
+// Normaliza o CPF para a forma mais segura de armazenar no banco.
+// Remove pontos, traços e espaços e limita a 11 dígitos numéricos.
+function normalizarCpf($cpf) {
+    if ($cpf === null || $cpf === '') {
+        return '';
+    }
+
+    $cpf_limpo = preg_replace('/\D+/', '', (string) $cpf);
+    return substr($cpf_limpo, 0, 11);
+}
+
+// Valida se o CPF foi informado em um formato aceitável.
+// A regra mínima aqui é: deve conter exatamente 11 números e não pode ser repetido.
+function validarCpf($cpf) {
+    $cpf_limpo = normalizarCpf($cpf);
+
+    if ($cpf_limpo === '' || strlen($cpf_limpo) !== 11) {
+        return false;
+    }
+
+    if (preg_match('/^(\d)\\1{10}$/', $cpf_limpo)) {
+        return false;
+    }
+
+    return true;
+}
+
 // Salva os dados acadêmicos básicos de um aluno; campos opcionais vazios ficam nulos.
 function cadastrarAluno($conexao, $nome, $cpf, $email, $turma, $nasc, $ativo = true) {
     if (!$conexao) return false;
@@ -76,7 +103,8 @@ function cadastrarAluno($conexao, $nome, $cpf, $email, $turma, $nasc, $ativo = t
         $sql = "INSERT INTO alunos (nome, cpf, email, turma, nascimento, ativo) VALUES (:nome, :cpf, :email, :turma, :nascimento, :ativo)";
         $stmt = $conexao->prepare($sql);
         $stmt->bindParam(":nome", $nome);
-        $cpf_val = (!empty($cpf) && trim($cpf) !== '') ? trim($cpf) : null;
+        $cpf_val = normalizarCpf($cpf);
+        $cpf_val = $cpf_val !== '' ? $cpf_val : null;
         $stmt->bindValue(":cpf", $cpf_val, $cpf_val === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
         $stmt->bindParam(":email", $email);
         $stmt->bindParam(":turma", $turma);

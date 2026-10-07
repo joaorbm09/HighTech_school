@@ -32,11 +32,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $csrf_token = $_POST['csrf_token'] ?? '';
 
     // Confere se o token recebido do formulário é igual ao token salvo na sessão.
-    if (!is_string($csrf_token) || !hash_equals($_SESSION['csrf_cadastro'], $csrf_token)) {
+    $csrf_valido = is_string($csrf_token) &&
+        hash_equals($_SESSION['csrf_cadastro'], $csrf_token);
+    if (!$csrf_valido) {
+        http_response_code(400);
         $mensagem = '<div class="alert alert-danger">Falha na validação de segurança. Atualize a página e tente novamente.</div>';
-    }
-
-    if (empty($nome) || empty($email) || empty($senha)) {
+    } elseif (empty($nome) || empty($email) || empty($senha)) {
         // Usuário não preencheu todos os campos obrigatórios.
         $mensagem = '<div class="alert alert-warning">Por favor, preencha todos os campos obrigatórios.</div>';
     } else if (!$conexao) {
@@ -52,15 +53,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Se o e-mail já existe, não deixamos cadastrar a mesma pessoa duas vezes.
         $mensagem = '<div class="alert alert-danger">Este e-mail já está cadastrado no sistema.</div>';
     } else {
-        // Agora sim: cria a conta e também grava o cadastro acadêmico do aluno.
-        // O cadastro acadêmico é separado da conta de acesso, mas usa o mesmo e-mail.
-        if (cadastrarUsuario($conexao, $nome, $email, $senha, 'aluno')) {
-            cadastrarAluno($conexao, $nome, null, $email, 'HT-2026', null, true);
+        // Conta e cadastro acadêmico formam uma única operação: ou ambos são salvos,
+        // ou a transação desfaz o que já tiver sido gravado.
+        try {
+            $conexao->beginTransaction();
+            $usuario_criado = cadastrarUsuario($conexao, $nome, $email, $senha, 'aluno');
+            $aluno_criado = $usuario_criado &&
+                cadastrarAluno($conexao, $nome, null, strtolower(trim($email)), 'HT-2026', null, true);
 
-            header("Location: login.php?sucesso=cadastrado");
-            exit;
-        } else {
-            // Se a inserção falhar por algum motivo, informamos o usuário.
+            if (!$usuario_criado || !$aluno_criado) {
+                $conexao->rollBack();
+                $mensagem = '<div class="alert alert-danger">Não foi possível concluir o cadastro. Confira se os dados já estão registrados e tente novamente.</div>';
+            } else {
+                $conexao->commit();
+                header("Location: login.php?sucesso=cadastrado");
+                exit;
+            }
+        } catch (Throwable $e) {
+            if ($conexao->inTransaction()) {
+                $conexao->rollBack();
+            }
+            error_log('Erro ao criar conta e cadastro acadêmico: ' . $e->getMessage());
             $mensagem = '<div class="alert alert-danger">Erro ao criar conta. Tente novamente.</div>';
         }
     }
@@ -89,6 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <?php echo $mensagem; ?>
 
 <form action="cadastrar.php" method="post">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_cadastro'], ENT_QUOTES, 'UTF-8'); ?>">
                 
                 <div class="form-group" style="margin-bottom: 1rem;">
                     <label for="nome">Nome Completo: *</label>

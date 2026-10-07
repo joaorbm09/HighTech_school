@@ -8,6 +8,18 @@ $mensagem = '';
 $usuarioEdicao = null;
 $usuarios = [];
 
+if ($conexao) {
+    try {
+        $usuarios = $conexao->query(
+            'SELECT id, nome, email, perfil FROM usuarios ORDER BY nome ASC'
+        )->fetchAll();
+    } catch (PDOException $e) {
+        error_log('Erro ao listar usuários: ' . $e->getMessage());
+        $usuarios = [];
+        $mensagem = 'Não foi possível carregar os usuários. Verifique o banco e a tabela de usuários.';
+    }
+}
+
 if (empty($_SESSION['csrf_usuarios'])) {
     $_SESSION['csrf_usuarios'] = bin2hex(random_bytes(32));
 }

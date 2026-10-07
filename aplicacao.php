@@ -18,7 +18,7 @@ if (!$conexao && $mensagem === '') {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['inscrever'])) {
     // Lê e valida os dados enviados no formulário público de inscrição.
     $nome    = $_POST['nome']     ?? '';
-    $cpf     = $_POST['cpf']      ?? '';
+    $cpf     = normalizarCpf($_POST['cpf'] ?? '');
     $email   = $_POST['email']    ?? '';
     $id_curso = $_POST['id_curso'] ?? '';
     $turma = 'HT-2026';
@@ -29,6 +29,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['inscrever'])) {
 // Cria ou localiza o cadastro do aluno e registra a matrícula no curso.
 if ($nasc === false) {
         $mensagem = '<div class="alert alert-warning">' . htmlspecialchars($nasc_erro) . '</div>';
+    } else if ($cpf !== '' && !validarCpf($cpf)) {
+        $mensagem = '<div class="alert alert-warning">CPF inválido. Digite 11 números, sem pontos ou traços.</div>';
     } else if (!$conexao) {
         $mensagem = '<div class="alert alert-danger">Sem conexão com o banco de dados. Tente novamente mais tarde.</div>';
     } else if (!empty($nome) && !empty($email) && !empty($id_curso)) {
@@ -70,9 +72,20 @@ if ($id_aluno) {
 }
 
 // Carrega somente os cursos ativos para exibi-los no catálogo público.
-$cursos = $conexao
-    ? $conexao->query('SELECT * FROM cursos WHERE ativo = true ORDER BY id ASC')->fetchAll()
-    : [];
+// Se a tabela de cursos ainda não existir ou o banco estiver num estado inconsistente,
+// a página continua funcionando com uma lista vazia e mostra uma mensagem de erro em vez de quebrar.
+$cursos = [];
+if ($conexao) {
+    try {
+        $cursos = $conexao->query('SELECT * FROM cursos WHERE ativo = true ORDER BY id ASC')->fetchAll();
+    } catch (PDOException $e) {
+        error_log('Erro ao listar cursos ativos: ' . $e->getMessage());
+        $cursos = [];
+        if ($mensagem === '') {
+            $mensagem = '<div class="alert alert-danger">Não foi possível carregar os cursos no momento. Verifique a conexão com o banco e a estrutura do schema.</div>';
+        }
+    }
+}
 $data_max_nasc = date('Y-m-d', strtotime('-14 years'));
 $data_min_nasc = date('Y-m-d', strtotime('-100 years'));
 ?>
@@ -97,11 +110,11 @@ $data_min_nasc = date('Y-m-d', strtotime('-100 years'));
 <div class="hero">
         <div class="container">
             
-            <span class="badge">Cursos</span>
+            <span class="badge">Início</span>
             
-            <h2>Cursos de tecnologia e gestão</h2>
+            <h2>Conheça os cursos da HighTech School</h2>
             
-            <p>Consulte os cursos disponíveis e faça sua matrícula.</p>
+            <p>Explore os cursos disponíveis e escolha aquele ideal para você.</p>
         </div>
     </div>
 
@@ -111,8 +124,8 @@ $data_min_nasc = date('Y-m-d', strtotime('-100 years'));
 
 <section id="cursos">
             <div class="section-header">
-                <h2>Cursos disponíveis</h2>
-                <p>Escolha um curso para iniciar sua matrícula.</p>
+                <h2>Catálogo de cursos</h2>
+                <p>Veja os cursos disponíveis para matrícula.</p>
             </div>
 
 <div class="grid">
@@ -143,8 +156,8 @@ $data_min_nasc = date('Y-m-d', strtotime('-100 years'));
         </section>
 
 <section id="inscricao" class="admin-card">
-            <h2>Inscrição em curso</h2>
-            <p style="margin-bottom: 1.5rem;">Informe seus dados para fazer a matrícula.</p>
+            <h2>Inscrição / matrícula</h2>
+            <p style="margin-bottom: 1.5rem;">Preencha seus dados e confirme a matrícula no curso escolhido.</p>
 
 <?php if ($conexao): ?>
 <form action="aplicacao.php" method="post">
@@ -162,7 +175,7 @@ $data_min_nasc = date('Y-m-d', strtotime('-100 years'));
 <div class="form-group">
                         <label for="cpf">CPF:</label>
                         
-                        <input type="text" name="cpf" id="cpf" placeholder="000.000.000-00">
+                        <input type="text" name="cpf" id="cpf" placeholder="00000000000" maxlength="11" inputmode="numeric" pattern="\d{11}" oninput="this.value = this.value.replace(/\D/g, '').slice(0, 11)">
                     </div>
 
 <div class="form-group">

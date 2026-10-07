@@ -42,7 +42,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'edit' && isset($_GET['id'])) 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['acao'] ?? '') !== 'excluir') {
     $id = $_POST['id'] ?? null;
     $nome = $_POST['nome'] ?? '';
-    $cpf = $_POST['cpf'] ?? '';
+    $cpf = normalizarCpf($_POST['cpf'] ?? '');
     $email = $_POST['email'] ?? '';
     $turma = $_POST['turma'] ?? '';
     $ativo = $_POST['ativo'] ?? 'true';
@@ -51,6 +51,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['acao'] ?? '') !== 'excluir
     $nasc = validarDataNascimento($nasc_raw, $nasc_erro);
     if ($nasc === false) {
         $mensagem = '<div class="alert alert-warning">' . htmlspecialchars($nasc_erro) . '</div>';
+    } else if ($cpf !== '' && !validarCpf($cpf)) {
+        $mensagem = '<div class="alert alert-warning">CPF inválido. Digite 11 números, sem pontos ou traços.</div>';
     } else if (!$conexao) {
         $mensagem = '<div class="alert alert-danger">Não foi possível acessar o banco de dados.</div>';
     } else if (!empty($nome) && !empty($email)) {
@@ -101,9 +103,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['acao'] ?? '') !== 'excluir
 }
 
 // Prepara a lista de alunos e os limites de data usados pelo formulário.
-$alunos = $conexao
-    ? $conexao->query('SELECT * FROM alunos ORDER BY id ASC')->fetchAll()
-    : [];
+// Se a tabela de alunos não existir ou o banco estiver desconectado, a página mantém a interface
+// operacional em vez de derrubar toda a página com uma exceção do PDO.
+$alunos = [];
+if ($conexao) {
+    try {
+        $alunos = $conexao->query('SELECT * FROM alunos ORDER BY id ASC')->fetchAll();
+    } catch (PDOException $e) {
+        error_log('Erro ao listar alunos: ' . $e->getMessage());
+        $alunos = [];
+        $mensagem = '<div class="alert alert-danger">Não foi possível carregar os alunos. Verifique a conexão com o banco e se a tabela de alunos foi criada.</div>';
+    }
+}
 $data_max_nasc = date('Y-m-d', strtotime('-14 years'));
 $data_min_nasc = date('Y-m-d', strtotime('-100 years'));
 ?>
@@ -153,7 +164,7 @@ $data_min_nasc = date('Y-m-d', strtotime('-100 years'));
 
 <div class="form-group">
                         <label for="cpf">CPF:</label>
-                        <input type="text" name="cpf" id="cpf" value="<?php echo htmlspecialchars($aluno_edicao['cpf'] ?? ''); ?>">
+                        <input type="text" name="cpf" id="cpf" value="<?php echo htmlspecialchars($aluno_edicao['cpf'] ?? ''); ?>" maxlength="11" inputmode="numeric" pattern="\d{11}" oninput="this.value = this.value.replace(/\D/g, '').slice(0, 11)">
                     </div>
 
 <div class="form-group">
