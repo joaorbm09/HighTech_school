@@ -58,8 +58,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $conexao->beginTransaction();
             $usuario_criado = cadastrarUsuario($conexao, $nome, $email, $senha, 'aluno');
-            $aluno_criado = $usuario_criado &&
-                cadastrarAluno($conexao, $nome, null, strtolower(trim($email)), 'HT-2026', null, true);
+
+            // Se o aluno já possui cadastro acadêmico prévio (ex: inscrição na página inicial),
+            // aproveita o cadastro existente; caso contrário, registra o novo aluno.
+            $aluno_existente = buscarAlunoPorEmail($conexao, $email);
+            if ($aluno_existente) {
+                $aluno_criado = true;
+            } else {
+                $aluno_criado = cadastrarAluno($conexao, $nome, null, strtolower(trim($email)), 'HT-2026', null, true);
+            }
 
             if (!$usuario_criado || !$aluno_criado) {
                 $conexao->rollBack();

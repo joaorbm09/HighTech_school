@@ -94,6 +94,18 @@ h2 {
     border-radius: 5px;
 }
 
+.card {
+    min-width: 0;
+}
+
+.card p, .card a, .lesson-content {
+    overflow-wrap: anywhere;
+}
+
+.lesson-content {
+    margin-top: 1rem;
+}
+
 .admin-card {
     margin: 20px 0;
 }
@@ -104,7 +116,7 @@ h2 {
 }
 
 .grid {
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
 }
 
 .hero {

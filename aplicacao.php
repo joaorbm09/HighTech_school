@@ -15,14 +15,22 @@ if (!$conexao && $mensagem === '') {
     $mensagem = '<div class="alert alert-danger">Não foi possível conectar ao banco. Verifique a configuração e tente novamente.</div>';
 }
 
+if (empty($_SESSION['csrf_inscricao'])) {
+    $_SESSION['csrf_inscricao'] = bin2hex(random_bytes(32));
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['inscrever'])) {
-    // Lê e valida os dados enviados no formulário público de inscrição.
-    $nome    = $_POST['nome']     ?? '';
-    $cpf     = normalizarCpf($_POST['cpf'] ?? '');
-    $email   = $_POST['email']    ?? '';
-    $id_curso = $_POST['id_curso'] ?? '';
-    $turma = 'HT-2026';
-    $nasc_input = trim($_POST['nasc'] ?? '');
+    $token = $_POST['csrf_token'] ?? '';
+    if (!hash_equals($_SESSION['csrf_inscricao'] ?? '', (string)$token)) {
+        $mensagem = '<div class="alert alert-danger">Falha na validação de segurança (token expirado). Atualize a página e tente novamente.</div>';
+    } else {
+        // Lê e valida os dados enviados no formulário público de inscrição.
+        $nome    = $_POST['nome']     ?? '';
+        $cpf     = normalizarCpf($_POST['cpf'] ?? '');
+        $email   = $_POST['email']    ?? '';
+        $id_curso = $_POST['id_curso'] ?? '';
+        $turma = 'HT-2026';
+        $nasc_input = trim($_POST['nasc'] ?? '');
     $nasc_erro = '';
     $nasc = validarDataNascimento($nasc_input, $nasc_erro);
 
@@ -68,6 +76,7 @@ if ($id_aluno) {
         }
     } else {
         $mensagem = '<div class="alert alert-warning">Por favor, preencha todos os campos obrigatórios.</div>';
+        }
     }
 }
 
@@ -163,6 +172,7 @@ $data_min_nasc = date('Y-m-d', strtotime('-100 years'));
 <form action="aplicacao.php" method="post">
                 
                 <input type="hidden" name="inscrever" value="1">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_inscricao'], ENT_QUOTES, 'UTF-8'); ?>">
                 
                 <div class="form-grid">
                     

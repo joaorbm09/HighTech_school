@@ -19,11 +19,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao']) && $_POST['ac
         $mensagem = '<div class="alert alert-danger">Falha na validação de segurança (token expirado). Tente novamente.</div>';
     } else {
         $id_excluir = filter_var($_POST['id'] ?? '', FILTER_VALIDATE_INT);
-        $stmt = $conexao ? $conexao->prepare('DELETE FROM cursos WHERE id = :id') : false;
-        if ($id_excluir && $stmt && $stmt->execute(['id' => $id_excluir]) && $stmt->rowCount() > 0) {
-            $mensagem = '<div class="alert alert-success">Curso excluído com sucesso!</div>';
+        if ($id_excluir && $conexao) {
+            try {
+                $stmt = $conexao->prepare('DELETE FROM cursos WHERE id = :id');
+                if ($stmt->execute(['id' => $id_excluir]) && $stmt->rowCount() > 0) {
+                    $mensagem = '<div class="alert alert-success">Curso excluído com sucesso!</div>';
+                } else {
+                    $mensagem = '<div class="alert alert-danger">Curso não encontrado ou já excluído.</div>';
+                }
+            } catch (PDOException $e) {
+                error_log('Erro ao excluir curso: ' . $e->getMessage());
+                $mensagem = '<div class="alert alert-danger">Erro ao excluir curso. Verifique se ele não possui matrículas ou aulas vinculadas.</div>';
+            }
         } else {
-            $mensagem = '<div class="alert alert-danger">Erro ao excluir curso. Verifique se ele não possui matrículas ou aulas vinculadas.</div>';
+            $mensagem = '<div class="alert alert-danger">Identificador de curso inválido.</div>';
         }
     }
 }
@@ -40,56 +49,70 @@ if (isset($_GET['action']) && $_GET['action'] === 'edit' && isset($_GET['id'])) 
 
 // Valida os campos e grava um curso novo ou atualiza o curso existente.
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['acao'] ?? '') !== 'excluir') {
-    $id = $_POST['id'] ?? null;
-    $nome = $_POST['nome'] ?? '';
-    $categoria = $_POST['categoria'] ?? '';
-    $descricao = $_POST['descricao'] ?? '';
-    $carga_horaria = $_POST['carga_horaria'] ?? 0;
-    $ativo = $_POST['ativo'] ?? 'true';
-    if (!$conexao) {
-        $mensagem = '<div class="alert alert-danger">Não foi possível acessar o banco de dados.</div>';
-    } elseif (!empty($nome) && !empty($categoria) && $carga_horaria > 0) {
-        if ($id) {
-            $stmt = $conexao->prepare(
-                'UPDATE cursos
-                 SET nome = :nome, categoria = :categoria, descricao = :descricao,
-                     carga_horaria = :carga_horaria, ativo = :ativo
-                 WHERE id = :id'
-            );
-            $salvo = $stmt->execute([
-                'nome' => trim($nome),
-                'categoria' => $categoria,
-                'descricao' => trim($descricao),
-                'carga_horaria' => (int) $carga_horaria,
-                'ativo' => $ativo === 'true',
-                'id' => (int) $id
-            ]);
-            if ($salvo) {
-                $mensagem = '<div class="alert alert-success">Curso atualizado com sucesso!</div>';
-                $curso_edicao = null;
-            } else {
-                $mensagem = '<div class="alert alert-danger">Erro ao atualizar curso.</div>';
+    $token = $_POST['csrf_token'] ?? '';
+    if (!hash_equals($_SESSION['csrf_cursos'], (string)$token)) {
+        $mensagem = '<div class="alert alert-danger">Falha na validação de segurança (token expirado). Tente novamente.</div>';
+    } else {
+        $id = $_POST['id'] ?? null;
+        $nome = $_POST['nome'] ?? '';
+        $categoria = $_POST['categoria'] ?? '';
+        $descricao = $_POST['descricao'] ?? '';
+        $carga_horaria = $_POST['carga_horaria'] ?? 0;
+        $ativo = $_POST['ativo'] ?? 'true';
+        if (!$conexao) {
+            $mensagem = '<div class="alert alert-danger">Não foi possível acessar o banco de dados.</div>';
+        } elseif (!empty($nome) && !empty($categoria) && $carga_horaria > 0) {
+            try {
+                if ($id) {
+                    $stmt = $conexao->prepare(
+                        'UPDATE cursos
+                         SET nome = :nome, categoria = :categoria, descricao = :descricao,
+                             carga_horaria = :carga_horaria, ativo = :ativo
+                         WHERE id = :id'
+                    );
+                    $salvo = $stmt->execute([
+                        'nome' => trim($nome),
+                        'categoria' => $categoria,
+                        'descricao' => trim($descricao),
+                        'carga_horaria' => (int) $carga_horaria,
+                        'ativo' => $ativo === 'true',
+                        'id' => (int) $id
+                    ]);
+                    if ($salvo) {
+                        $mensagem = '<div class="alert alert-success">Curso atualizado com sucesso!</div>';
+                        $curso_edicao = null;
+                    } else {
+                        $mensagem = '<div class="alert alert-danger">Erro ao atualizar curso.</div>';
+                    }
+                } else {
+                    $stmt = $conexao->prepare(
+                        'INSERT INTO cursos (nome, categoria, descricao, carga_horaria, ativo)
+                         VALUES (:nome, :categoria, :descricao, :carga_horaria, :ativo)'
+                    );
+                    $salvo = $stmt->execute([
+                        'nome' => trim($nome),
+                        'categoria' => $categoria,
+                        'descricao' => trim($descricao),
+                        'carga_horaria' => (int) $carga_horaria,
+                        'ativo' => $ativo === 'true'
+                    ]);
+                    if ($salvo) {
+                        $mensagem = '<div class="alert alert-success">Novo curso cadastrado com sucesso!</div>';
+                    } else {
+                        $mensagem = '<div class="alert alert-danger">Erro ao cadastrar curso.</div>';
+                    }
+                }
+            } catch (PDOException $e) {
+                error_log('Erro ao salvar curso: ' . $e->getMessage());
+                if ($e->getCode() === '23505') {
+                    $mensagem = '<div class="alert alert-warning">Já existe um curso cadastrado com este nome.</div>';
+                } else {
+                    $mensagem = '<div class="alert alert-danger">Erro ao salvar curso no banco de dados.</div>';
+                }
             }
         } else {
-            $stmt = $conexao->prepare(
-                'INSERT INTO cursos (nome, categoria, descricao, carga_horaria, ativo)
-                 VALUES (:nome, :categoria, :descricao, :carga_horaria, :ativo)'
-            );
-            $salvo = $conexao && $stmt->execute([
-                'nome' => trim($nome),
-                'categoria' => $categoria,
-                'descricao' => trim($descricao),
-                'carga_horaria' => (int) $carga_horaria,
-                'ativo' => $ativo === 'true'
-            ]);
-            if ($salvo) {
-                $mensagem = '<div class="alert alert-success">Novo curso cadastrado com sucesso!</div>';
-            } else {
-                $mensagem = '<div class="alert alert-danger">Erro ao cadastrar curso.</div>';
-            }
+            $mensagem = '<div class="alert alert-warning">Preencha Nome, Categoria e Carga Horária válida.</div>';
         }
-    } else {
-        $mensagem = '<div class="alert alert-warning">Preencha Nome, Categoria e Carga Horária válida.</div>';
     }
 }
 
@@ -143,6 +166,7 @@ if ($conexao) {
             <br>
             
             <form action="cursos.php" method="post">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_cursos'], ENT_QUOTES, 'UTF-8'); ?>">
                 <?php if ($curso_edicao): ?>
 
 <input type="hidden" name="id" value="<?php echo htmlspecialchars($curso_edicao['id']); ?>">

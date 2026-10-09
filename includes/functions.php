@@ -96,6 +96,43 @@ function validarCpf($cpf) {
     return true;
 }
 
+// Exibe texto complementar de uma aula com URLs HTTP/HTTPS clicáveis e seguras.
+function formatarConteudoAula($conteudo) {
+    $partes = preg_split(
+        '~(https?://[^\s<>"\']+)~iu',
+        (string) $conteudo,
+        -1,
+        PREG_SPLIT_DELIM_CAPTURE
+    );
+    $html = '';
+
+    foreach ($partes as $indice => $parte) {
+        if ($indice % 2 === 0) {
+            $html .= nl2br(htmlspecialchars($parte, ENT_QUOTES, 'UTF-8'));
+            continue;
+        }
+
+        // Pontuação no fim da frase não deve virar parte do endereço clicável.
+        $url = rtrim($parte, '.,;:!?)]}');
+        $pontuacao = substr($parte, strlen($url));
+        $esquema = strtolower((string) parse_url($url, PHP_URL_SCHEME));
+
+        if ($url !== '' &&
+            filter_var($url, FILTER_VALIDATE_URL) &&
+            in_array($esquema, ['http', 'https'], true)) {
+            $url_segura = htmlspecialchars($url, ENT_QUOTES, 'UTF-8');
+            $html .= '<a href="' . $url_segura .
+                '" target="_blank" rel="noopener noreferrer">' .
+                $url_segura . '</a>';
+            $html .= htmlspecialchars($pontuacao, ENT_QUOTES, 'UTF-8');
+        } else {
+            $html .= htmlspecialchars($parte, ENT_QUOTES, 'UTF-8');
+        }
+    }
+
+    return $html;
+}
+
 // Salva os dados acadêmicos básicos de um aluno; campos opcionais vazios ficam nulos.
 function cadastrarAluno($conexao, $nome, $cpf, $email, $turma, $nasc, $ativo = true) {
     if (!$conexao) return false;

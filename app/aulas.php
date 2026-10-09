@@ -136,11 +136,11 @@ if ($matricula) {
                                     <?php endif; ?>
                                     <h3><?php echo htmlspecialchars($aula['titulo'], ENT_QUOTES, 'UTF-8'); ?></h3>
                                     <?php if (!empty($aula['descricao'])): ?>
-                                        <p><?php echo nl2br(htmlspecialchars($aula['descricao'], ENT_QUOTES, 'UTF-8')); ?></p>
+                                        <p class="lesson-content"><?php echo nl2br(htmlspecialchars($aula['descricao'], ENT_QUOTES, 'UTF-8')); ?></p>
                                     <?php endif; ?>
                                     <?php if (!empty($aula['conteudo'])): ?>
-                                        <div style="margin-top: 1rem;">
-                                            <?php echo nl2br(htmlspecialchars($aula['conteudo'], ENT_QUOTES, 'UTF-8')); ?>
+                                        <div class="lesson-content">
+                                            <?php echo formatarConteudoAula($aula['conteudo']); ?>
                                         </div>
                                     <?php endif; ?>
                                     <?php

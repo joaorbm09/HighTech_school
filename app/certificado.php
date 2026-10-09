@@ -1,5 +1,6 @@
 <?php
 // Esta página pública confere o formato do código e procura o certificado no banco.
+require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 
 $erro = '';

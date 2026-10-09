@@ -18,42 +18,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao']) && $_POST['ac
         $mensagem = '<div class="alert alert-danger">Falha na validação de segurança (token expirado). Tente novamente.</div>';
     } else {
         $id_cancelar = filter_var($_POST['id'] ?? '', FILTER_VALIDATE_INT);
-        $stmt = $conexao ? $conexao->prepare('DELETE FROM matriculas WHERE id = :id') : false;
-        if ($id_cancelar && $stmt && $stmt->execute(['id' => $id_cancelar]) && $stmt->rowCount() > 0) {
-            $mensagem = '<div class="alert alert-success">Matrícula cancelada com sucesso!</div>';
+        if ($id_cancelar && $conexao) {
+            try {
+                $stmt = $conexao->prepare('DELETE FROM matriculas WHERE id = :id');
+                if ($stmt->execute(['id' => $id_cancelar]) && $stmt->rowCount() > 0) {
+                    $mensagem = '<div class="alert alert-success">Matrícula cancelada com sucesso!</div>';
+                } else {
+                    $mensagem = '<div class="alert alert-danger">Matrícula não encontrada ou já cancelada.</div>';
+                }
+            } catch (PDOException $e) {
+                error_log('Erro ao cancelar matrícula: ' . $e->getMessage());
+                $mensagem = '<div class="alert alert-danger">Erro ao cancelar matrícula no banco de dados.</div>';
+            }
         } else {
-            $mensagem = '<div class="alert alert-danger">Erro ao cancelar matrícula.</div>';
+            $mensagem = '<div class="alert alert-danger">Identificador de matrícula inválido.</div>';
         }
     }
 }
 
 // Registra uma nova matrícula criada pelo formulário administrativo.
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['acao'] ?? '') !== 'cancelar') {
-    $id_aluno = $_POST['id_aluno'] ?? null;
-    $id_curso = $_POST['id_curso'] ?? null;
-    $status = $_POST['status'] ?? 'Ativa';
-    if ($id_aluno && $id_curso && $conexao) {
-        try {
-            $stmt = $conexao->prepare(
-                'INSERT INTO matriculas (id_aluno, id_curso, status)
-                 VALUES (:id_aluno, :id_curso, :status)'
-            );
-            $salvo = $stmt->execute([
-                'id_aluno' => (int) $id_aluno,
-                'id_curso' => (int) $id_curso,
-                'status' => $status
-            ]);
-        } catch (PDOException $e) {
-            error_log('Erro ao criar matrícula: ' . $e->getMessage());
-            $salvo = false;
-        }
-        if ($salvo) {
-            $mensagem = '<div class="alert alert-success">Aluno matriculado com sucesso no curso selecionado!</div>';
-        } else {
-            $mensagem = '<div class="alert alert-danger">Erro ao realizar matrícula.</div>';
-        }
+    $token = $_POST['csrf_token'] ?? '';
+    if (!hash_equals($_SESSION['csrf_matriculas'], (string)$token)) {
+        $mensagem = '<div class="alert alert-danger">Falha na validação de segurança (token expirado). Tente novamente.</div>';
     } else {
-        $mensagem = '<div class="alert alert-warning">Selecione o Aluno e o Curso para realizar a matrícula.</div>';
+        $id_aluno = $_POST['id_aluno'] ?? null;
+        $id_curso = $_POST['id_curso'] ?? null;
+        $status = $_POST['status'] ?? 'Ativa';
+        if ($id_aluno && $id_curso && $conexao) {
+            try {
+                $stmt = $conexao->prepare(
+                    'INSERT INTO matriculas (id_aluno, id_curso, status)
+                     VALUES (:id_aluno, :id_curso, :status)'
+                );
+                $salvo = $stmt->execute([
+                    'id_aluno' => (int) $id_aluno,
+                    'id_curso' => (int) $id_curso,
+                    'status' => $status
+                ]);
+            } catch (PDOException $e) {
+                error_log('Erro ao criar matrícula: ' . $e->getMessage());
+                $salvo = false;
+                if ($e->getCode() === '23505') {
+                    $mensagem = '<div class="alert alert-warning">Este aluno já possui matrícula cadastrada neste curso.</div>';
+                }
+            }
+            if ($salvo) {
+                $mensagem = '<div class="alert alert-success">Aluno matriculado com sucesso no curso selecionado!</div>';
+            } elseif ($mensagem === '') {
+                $mensagem = '<div class="alert alert-danger">Erro ao realizar matrícula.</div>';
+            }
+        } else {
+            $mensagem = '<div class="alert alert-warning">Selecione o Aluno e o Curso para realizar a matrícula.</div>';
+        }
     }
 }
 
@@ -115,6 +132,7 @@ if ($conexao) {
             <br>
             
             <form action="matriculas.php" method="post">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_matriculas'], ENT_QUOTES, 'UTF-8'); ?>">
                 
                 <div class="form-grid">
                     

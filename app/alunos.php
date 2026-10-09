@@ -19,11 +19,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao']) && $_POST['ac
         $mensagem = '<div class="alert alert-danger">Falha na validação de segurança (token expirado). Tente novamente.</div>';
     } else {
         $id_excluir = filter_var($_POST['id'] ?? '', FILTER_VALIDATE_INT);
-        $stmt = $conexao ? $conexao->prepare('DELETE FROM alunos WHERE id = :id') : false;
-        if ($id_excluir && $stmt && $stmt->execute(['id' => $id_excluir]) && $stmt->rowCount() > 0) {
-            $mensagem = '<div class="alert alert-success">Aluno excluído com sucesso!</div>';
+        if ($id_excluir && $conexao) {
+            try {
+                $stmt = $conexao->prepare('DELETE FROM alunos WHERE id = :id');
+                if ($stmt->execute(['id' => $id_excluir]) && $stmt->rowCount() > 0) {
+                    $mensagem = '<div class="alert alert-success">Aluno excluído com sucesso!</div>';
+                } else {
+                    $mensagem = '<div class="alert alert-danger">Aluno não encontrado ou já excluído.</div>';
+                }
+            } catch (PDOException $e) {
+                error_log('Erro ao excluir aluno: ' . $e->getMessage());
+                $mensagem = '<div class="alert alert-danger">Erro ao excluir aluno. Verifique restrições no banco de dados.</div>';
+            }
         } else {
-            $mensagem = '<div class="alert alert-danger">Erro ao excluir aluno. Verifique restrições no banco de dados.</div>';
+            $mensagem = '<div class="alert alert-danger">Identificador de aluno inválido.</div>';
         }
     }
 }
@@ -40,65 +49,79 @@ if (isset($_GET['action']) && $_GET['action'] === 'edit' && isset($_GET['id'])) 
 
 // Valida os dados recebidos e insere ou atualiza o cadastro acadêmico.
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['acao'] ?? '') !== 'excluir') {
-    $id = $_POST['id'] ?? null;
-    $nome = $_POST['nome'] ?? '';
-    $cpf = normalizarCpf($_POST['cpf'] ?? '');
-    $email = $_POST['email'] ?? '';
-    $turma = $_POST['turma'] ?? '';
-    $ativo = $_POST['ativo'] ?? 'true';
-    $nasc_raw = trim($_POST['nasc'] ?? '');
-    $nasc_erro = '';
-    $nasc = validarDataNascimento($nasc_raw, $nasc_erro);
-    if ($nasc === false) {
-        $mensagem = '<div class="alert alert-warning">' . htmlspecialchars($nasc_erro) . '</div>';
-    } else if ($cpf !== '' && !validarCpf($cpf)) {
-        $mensagem = '<div class="alert alert-warning">CPF inválido. Digite 11 números, sem pontos ou traços.</div>';
-    } else if (!$conexao) {
-        $mensagem = '<div class="alert alert-danger">Não foi possível acessar o banco de dados.</div>';
-    } else if (!empty($nome) && !empty($email)) {
-        if ($id) {
-            $stmt = $conexao->prepare(
-                'UPDATE alunos
-                 SET nome = :nome, cpf = :cpf, email = :email, turma = :turma,
-                     nascimento = :nascimento, ativo = :ativo
-                 WHERE id = :id'
-            );
-            $salvo = $stmt->execute([
-                'nome' => trim($nome),
-                'cpf' => trim($cpf) !== '' ? trim($cpf) : null,
-                'email' => strtolower(trim($email)),
-                'turma' => trim($turma),
-                'nascimento' => $nasc,
-                'ativo' => $ativo === 'true',
-                'id' => (int) $id
-            ]);
-            if ($salvo) {
-                $mensagem = '<div class="alert alert-success">Dados do aluno atualizados com sucesso!</div>';
-                $aluno_edicao = null;
-            } else {
-                $mensagem = '<div class="alert alert-danger">Erro ao atualizar aluno.</div>';
+    $token = $_POST['csrf_token'] ?? '';
+    if (!hash_equals($_SESSION['csrf_alunos'], (string)$token)) {
+        $mensagem = '<div class="alert alert-danger">Falha na validação de segurança (token expirado). Tente novamente.</div>';
+    } else {
+        $id = $_POST['id'] ?? null;
+        $nome = $_POST['nome'] ?? '';
+        $cpf = normalizarCpf($_POST['cpf'] ?? '');
+        $email = $_POST['email'] ?? '';
+        $turma = $_POST['turma'] ?? '';
+        $ativo = $_POST['ativo'] ?? 'true';
+        $nasc_raw = trim($_POST['nasc'] ?? '');
+        $nasc_erro = '';
+        $nasc = validarDataNascimento($nasc_raw, $nasc_erro);
+        if ($nasc === false) {
+            $mensagem = '<div class="alert alert-warning">' . htmlspecialchars($nasc_erro) . '</div>';
+        } else if ($cpf !== '' && !validarCpf($cpf)) {
+            $mensagem = '<div class="alert alert-warning">CPF inválido. Digite 11 números, sem pontos ou traços.</div>';
+        } else if (!$conexao) {
+            $mensagem = '<div class="alert alert-danger">Não foi possível acessar o banco de dados.</div>';
+        } else if (!empty($nome) && !empty($email)) {
+            try {
+                if ($id) {
+                    $stmt = $conexao->prepare(
+                        'UPDATE alunos
+                         SET nome = :nome, cpf = :cpf, email = :email, turma = :turma,
+                             nascimento = :nascimento, ativo = :ativo
+                         WHERE id = :id'
+                    );
+                    $salvo = $stmt->execute([
+                        'nome' => trim($nome),
+                        'cpf' => trim($cpf) !== '' ? trim($cpf) : null,
+                        'email' => strtolower(trim($email)),
+                        'turma' => trim($turma),
+                        'nascimento' => $nasc,
+                        'ativo' => $ativo === 'true',
+                        'id' => (int) $id
+                    ]);
+                    if ($salvo) {
+                        $mensagem = '<div class="alert alert-success">Dados do aluno atualizados com sucesso!</div>';
+                        $aluno_edicao = null;
+                    } else {
+                        $mensagem = '<div class="alert alert-danger">Erro ao atualizar aluno.</div>';
+                    }
+                } else {
+                    $stmt = $conexao->prepare(
+                        'INSERT INTO alunos (nome, cpf, email, turma, nascimento, ativo)
+                         VALUES (:nome, :cpf, :email, :turma, :nascimento, :ativo)'
+                    );
+                    $salvo = $stmt->execute([
+                        'nome' => trim($nome),
+                        'cpf' => trim($cpf) !== '' ? trim($cpf) : null,
+                        'email' => strtolower(trim($email)),
+                        'turma' => trim($turma),
+                        'nascimento' => $nasc,
+                        'ativo' => $ativo === 'true'
+                    ]);
+                    if ($salvo) {
+                        $mensagem = '<div class="alert alert-success">Novo aluno cadastrado com sucesso!</div>';
+                    } else {
+                        $mensagem = '<div class="alert alert-danger">Erro ao cadastrar aluno.</div>';
+                    }
+                }
+            } catch (PDOException $e) {
+                error_log('Erro ao salvar aluno: ' . $e->getMessage());
+                if ($e->getCode() === '23505') {
+                    $mensagem = '<div class="alert alert-warning">Já existe um aluno cadastrado com este e-mail ou CPF.</div>';
+                } else {
+                    $mensagem = '<div class="alert alert-danger">Erro ao processar dados no banco. Tente novamente.</div>';
+                }
             }
         } else {
-            $stmt = $conexao->prepare(
-                'INSERT INTO alunos (nome, cpf, email, turma, nascimento, ativo)
-                 VALUES (:nome, :cpf, :email, :turma, :nascimento, :ativo)'
-            );
-            $salvo = $stmt->execute([
-                'nome' => trim($nome),
-                'cpf' => trim($cpf) !== '' ? trim($cpf) : null,
-                'email' => strtolower(trim($email)),
-                'turma' => trim($turma),
-                'nascimento' => $nasc,
-                'ativo' => $ativo === 'true'
-            ]);
-            if ($salvo) {
-                $mensagem = '<div class="alert alert-success">Novo aluno cadastrado com sucesso!</div>';
-            } else {
-                $mensagem = '<div class="alert alert-danger">Erro ao cadastrar aluno.</div>';
-            }
+            $mensagem = '<div class="alert alert-warning">Campos obrigatórios: Nome e E-mail.</div>';
         }
-    } else {
-        $mensagem = '<div class="alert alert-warning">Campos obrigatórios: Nome e E-mail.</div>';
     }
 }
 
@@ -149,6 +172,7 @@ $data_min_nasc = date('Y-m-d', strtotime('-100 years'));
             <br>
             
             <form action="alunos.php" method="post">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_alunos'], ENT_QUOTES, 'UTF-8'); ?>">
                 <?php if ($aluno_edicao): ?>
 
 <input type="hidden" name="id" value="<?php echo htmlspecialchars($aluno_edicao['id']); ?>">
