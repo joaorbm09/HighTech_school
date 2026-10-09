@@ -103,7 +103,7 @@ cd /caminho/para/o/projeto/hightech_school
 3. Execute o arquivo SQL com o comando abaixo:
 
 ```bash
-psql -h 127.0.0.1 -U admin_school -d hightech_school -f database/schema.sql
+psql -h localhost -U admin_school -d hightech_school -f database/schema.sql
 ```
 
 4. Para confirmar que as tabelas foram criadas, execute:
