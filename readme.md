@@ -39,7 +39,7 @@ Para executar a aplicação localmente, é necessário ter PHP e PostgreSQL inst
 
 ### Pré-requisitos
 
-- **PHP 7.4 ou superior**, com as extensões `PDO`, `pdo_pgsql` e `mbstring` habilitadas.
+- **PHP 7.4 ou superior**, com as extensões `PDO` e `pdo_pgsql` habilitadas.
 - **PostgreSQL** instalado e em execução.
 - **Git** instalado para clonar o repositório.
 - O cliente de linha de comando `psql`, incluído na instalação do PostgreSQL.
@@ -168,7 +168,7 @@ Confirme que os módulos necessários estão habilitados:
 php -m
 ```
 
-Na lista apresentada, verifique a presença de `PDO`, `pdo_pgsql` e `mbstring`.
+Na lista apresentada, verifique a presença de `PDO` e `pdo_pgsql`.
 
 ### Passo 5: Iniciar a aplicação
 
@@ -456,7 +456,7 @@ O cadastro público cria contas com o perfil `aluno`. O perfil `admin` precisa s
 
 | ID | Título | Descrição | Prioridade |
 | --- | --- | --- | --- |
-| **RNF01** | Tecnologias de execução | A aplicação deve executar em PHP 7.4 ou superior com PDO, `pdo_pgsql` e `mbstring`, e utilizar PostgreSQL como banco de dados. | Alta |
+| **RNF01** | Tecnologias de execução | A aplicação deve executar em PHP 7.4 ou superior com PDO e `pdo_pgsql`, e utilizar PostgreSQL como banco de dados. | Alta |
 | **RNF02** | Separação de responsabilidades | A conexão, autenticação, funções de dados, páginas e estilos devem permanecer organizados nos arquivos e diretórios próprios do projeto. | Média |
 | **RNF03** | Compatibilidade web | As páginas devem ser acessíveis por navegadores web modernos sem instalação de um cliente específico. | Média |
 

@@ -137,6 +137,7 @@ if (!$conexao) {
                 $descricao = is_string($_POST['descricao'] ?? null) ? trim($_POST['descricao']) : '';
                 $conteudo = is_string($_POST['conteudo'] ?? null) ? trim($_POST['conteudo']) : '';
                 $video_url = is_string($_POST['video_url'] ?? null) ? trim($_POST['video_url']) : '';
+                $titulo_caracteres = preg_match_all('/./us', $titulo);
                 $ordem = filter_var(
                     is_string($_POST['ordem'] ?? null) || is_int($_POST['ordem'] ?? null)
                         ? $_POST['ordem']
@@ -149,7 +150,7 @@ if (!$conexao) {
                 if ($id_aula_raw !== '' && $id_aula === false) {
                     http_response_code(400);
                     $erro = 'O identificador da aula é inválido.';
-                } elseif ($titulo === '' || mb_strlen($titulo) > 150) {
+                } elseif ($titulo === '' || $titulo_caracteres === false || $titulo_caracteres > 150) {
                     $erro = 'Informe um título de até 150 caracteres.';
                 } elseif ($ordem === false) {
                     $erro = 'A ordem deve ser um número inteiro maior que zero.';
