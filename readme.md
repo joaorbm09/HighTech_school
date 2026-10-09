@@ -59,7 +59,7 @@ cd HighTech_school
 Crie um banco de dados vazio para o projeto. O exemplo abaixo usa o usuário PostgreSQL `postgres`:
 
 ```bash
-psql -U postgres -c "CREATE DATABASE hightech_school;"
+psql -U admin_school -c "CREATE DATABASE hightech_school;"
 ```
 
 Se o banco `hightech_school` já existir, escolha outro nome ou remova somente o banco local de desenvolvimento antes de recriá-lo. A remoção de um banco apaga os dados contidos nele.
@@ -69,7 +69,7 @@ Se o banco `hightech_school` já existir, escolha outro nome ou remova somente o
 Na raiz do repositório, execute o script SQL:
 
 ```bash
-psql -U postgres -d hightech_school -f database/schema.sql
+psql -U admin_school -d hightech_school -f database/schema.sql
 ```
 
 O arquivo `database/schema.sql` cria as tabelas, incluindo aulas, progresso, provas, questões, tentativas e certificados, e insere cursos, alunos, matrículas, vagas, uma solicitação corporativa e um perfil de talento de exemplo. O script não cria uma conta de usuário para login nem uma conta de administrador.
@@ -77,7 +77,7 @@ O arquivo `database/schema.sql` cria as tabelas, incluindo aulas, progresso, pro
 Em uma instalação existente, prefira aplicar somente a migração do fluxo educacional para não executar novamente os dados de demonstração:
 
 ```bash
-psql -U postgres -d hightech_school -f database/migrations/20261002_learning_flow.sql
+psql -U admin_school -d hightech_school -f database/migrations/20261002_learning_flow.sql
 ```
 
 Esse comando pede ao PostgreSQL para conectar ao banco `hightech_school` como o usuário `postgres` e executar o arquivo SQL. Se o seu banco ou usuário tiver outro nome, troque esses valores pelos do seu ambiente remoto.
@@ -96,13 +96,13 @@ cd /caminho/para/o/projeto/hightech_school
 3. Execute o arquivo SQL com o comando abaixo:
 
 ```bash
-psql -U postgres -d hightech_school -f database/schema.sql
+psql -U admin_school -d hightech_school -f database/schema.sql
 ```
 
 4. Se o objetivo for apenas aplicar uma migração específica, use o arquivo correspondente e confirme o banco antes de executar:
 
 ```bash
-psql -U postgres -d hightech_school -f database/migrations/20261002_learning_flow.sql
+psql -U admin_school -d hightech_school -f database/migrations/20261002_learning_flow.sql
 ```
 
 5. Para confirmar que as tabelas foram criadas, execute:
