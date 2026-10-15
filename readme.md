@@ -1,10 +1,12 @@
-# HighTech — Sistema de serviços e educação em tecnologia
+# HighTech School — Sistema de gestão escolar
 
-A **HighTech** é uma aplicação web acadêmica desenvolvida em PHP e PostgreSQL. O sistema combina um portal de serviços para empresas com a HighTech School, uma área de formação em tecnologia, e recursos para aproximar estudantes de oportunidades profissionais.
+A **HighTech School** é uma aplicação web acadêmica desenvolvida em PHP e PostgreSQL, focada exclusivamente na gestão educacional. O sistema permite que visitantes conheçam os cursos, que alunos criem contas, estudem aulas, acompanhem o progresso, realizem provas e obtenham certificados verificáveis. Administradores autenticados gerenciam usuários, alunos, cursos, matrículas, aulas e provas.
 
-Por meio da aplicação, visitantes podem conhecer os serviços, consultar cursos e vagas, enviar solicitações corporativas e visualizar perfis profissionais públicos. Alunos podem criar uma conta, acompanhar matrículas, acessar as aulas dos cursos em que possuem matrícula ativa, registrar o progresso, fazer provas e receber certificados verificáveis após a aprovação. Administradores autenticados podem gerenciar alunos, cursos, matrículas, aulas e provas.
+Esta versão é derivada do projeto [HighTech](https://github.com/joaorbm09/HighTech), sem os módulos de portal empresarial, vagas e talentos — concentrando-se nas funcionalidades essenciais de aprendizagem e gestão escolar.
 
-Para entender as tags HTML usadas nas telas, consulte a [documentação de tags HTML](docs/html-tags.md).
+Para entender todas as tecnologias usadas no projeto (HTML, CSS, PHP, SQL) e o motivo de cada escolha, consulte a [documentação de tecnologias](docs/html-tags.md).
+
+Para o roteiro de apresentação do projeto, consulte o [roteiro de apresentação](docs/roteiro_apresentacao.md).
 
 > Este documento descreve o comportamento e a estrutura presentes no projeto. Recursos mencionados como possibilidades futuras não devem ser considerados implementados.
 
@@ -14,7 +16,7 @@ Para entender as tags HTML usadas nas telas, consulte a [documentação de tags 
 - [Como executar o projeto localmente](#como-executar-o-projeto-localmente)
   - [Pré-requisitos](#pré-requisitos)
   - [Passo a passo de instalação](#passo-1-clonar-o-repositório)
-  - [Como criar ou promover um Administrador](#passo-6-criar-uma-conta-e-acessar)
+  - [Como criar o primeiro administrador](#primeiro-administrador)
 - [Especificação de Requisitos de Software (SRS)](#especificação-de-requisitos-de-software)
   - [1. Introdução](#1-introdução)
   - [2. Descrição global](#2-descrição-global)
@@ -37,7 +39,7 @@ Para executar a aplicação localmente, é necessário ter PHP e PostgreSQL inst
 
 ### Pré-requisitos
 
-- **PHP 7.4 ou superior**, com as extensões `PDO` e `pdo_pgsql` habilitadas.
+- **PHP 7.4 ou superior**, com as extensões `PDO`, `pdo_pgsql` e `mbstring` habilitadas.
 - **PostgreSQL** instalado e em execução.
 - **Git** instalado para clonar o repositório.
 - O cliente de linha de comando `psql`, incluído na instalação do PostgreSQL.
@@ -56,110 +58,42 @@ cd HighTech_school
 
 ### Passo 2: Criar o banco de dados
 
-Crie um usuário PostgreSQL dedicado à aplicação e um banco de dados de propriedade desse usuário. Não use a conta administrativa `postgres` como usuário de conexão da aplicação. No terminal, abra o console do PostgreSQL:
+Crie um banco de dados vazio para o projeto. O exemplo abaixo usa o usuário PostgreSQL `postgres`:
 
 ```bash
-psql -U postgres
+psql -U postgres -c "CREATE DATABASE hightech_school;"
 ```
 
-No console `psql`, crie a role e defina uma senha própria:
+Se o banco `hightech_school` já existir, escolha outro nome ou remova somente o banco local de desenvolvimento antes de recriá-lo.
 
-```sql
-CREATE USER admin_school WITH PASSWORD admin123;
-CREATE DATABASE hightech_school OWNER admin_school;
-\q
-```
-
-Se o banco `hightech_school` já existir, escolha outro nome ou remova somente o banco local de desenvolvimento antes de recriá-lo. A remoção de um banco apaga os dados contidos nele.
-
-> **OBS**: como excluir um banco de dados: 
- ```sql
- DROP DATABASE nome_do_banco;
- ```
-
-### Passo 3: Criar as tabelas e carregar os dados de demonstração
+### Passo 3: Criar as tabelas e carregar os dados iniciais
 
 Na raiz do repositório, execute o script SQL:
 
 ```bash
-psql -h localhost -U admin_school -d hightech_school -f database/schema.sql
+psql -U postgres -d hightech_school -f database/schema.sql
 ```
 
-Informe a senha de `admin_school` quando solicitada. O arquivo `database/schema.sql` cria as tabelas e insere dados de demonstração. Também cria a conta administrativa de demonstração `admin@hightech.com` com a senha conhecida `admin123`; não mantenha essa conta ativa em um servidor acessível por outras pessoas.
+O arquivo `database/schema.sql` cria as 9 tabelas do sistema (usuarios, alunos, cursos, matriculas, aulas, progresso_aulas, provas, questoes_prova, alternativas_prova, tentativas_prova, certificados) e insere dois cursos iniciais de demonstração.
 
-Não execute `database/schema.sql` novamente em um banco existente: além de não ser um mecanismo de migração, o script inclui dados de demonstração. Faça backup e use uma migração própria para atualizar uma instalação existente; este repositório não inclui o arquivo de migração citado em versões anteriores destas instruções.
+#### Aplicar pelo pgAdmin
 
-> Importante: neste projeto, a execução do banco será feita preferencialmente pelo terminal/SSH, porque o professor vai seguir o passo a passo em um servidor de avaliação. O uso do pgAdmin não é obrigatório e não deve ser considerado parte do processo principal.
-
-#### Aplicar pelo terminal (recomendado)
-
-1. Acesse o servidor ou máquina local pelo terminal.
-2. Entre na pasta do projeto:
-
-```bash
-cd /caminho/para/o/projeto/hightech_school
-```
-
-3. Execute o arquivo SQL com o comando abaixo:
-
-```bash
-psql -h localhost -U admin_school -d hightech_school -f database/schema.sql
-```
-
-4. Para confirmar que as tabelas foram criadas, execute:
-
-```sql
-SELECT table_name
-FROM information_schema.tables
-WHERE table_schema = 'public'
-  AND table_name IN (
-      'aulas',
-      'progresso_aulas',
-      'provas',
-      'questoes_prova',
-      'alternativas_prova',
-      'tentativas_prova',
-      'certificados'
-  )
-ORDER BY table_name;
-```
-
-O resultado deve listar as tabelas. Se uma tabela não aparecer, confira se o comando foi executado no banco correto.
-
-Não execute `database/schema.sql` novamente em uma instalação existente; ele contém dados de demonstração e não substitui uma migração.
-
-Administradores podem cadastrar e editar aulas em **Gestão de Aulas** no menu administrativo. Selecione o curso, informe o título, o link HTTP/HTTPS do material e a ordem. A descrição e as orientações complementares são opcionais. Use **Ocultar aula** para removê-la da área do aluno sem apagar o progresso registrado; ela pode ser publicada novamente depois. O aluno abre o link em uma nova aba e marca a aula como concluída na plataforma.
-
-Em **Gestão de Provas**, configure a nota mínima e o número máximo de tentativas (o padrão inicial é 70% e 3 tentativas) e cadastre as questões de múltipla escolha, cada uma com quatro alternativas e uma resposta correta. Ative a prova depois de cadastrar as questões. Os alunos poderão fazê-la quando concluírem as aulas obrigatórias ativas. A aprovação emite um certificado único; o aluno pode imprimir a página ou salvá-la como PDF, e qualquer pessoa pode validar o código do certificado na mesma página.
-
-Para os alunos, **Meu Painel** fica disponível no menu após o login. Uma matrícula ativa libera somente as aulas publicadas para aquele curso; se a lista mostrar **Aulas ainda não publicadas**, o administrador precisa cadastrar e ativar os materiais em **Gestão de Aulas**. A seção **Matrícula Express** permite escolher cursos ativos em que o aluno ainda não esteja matriculado.
-
-O fluxo de prova atual é corrigido pela própria HighTech School para que a nota e a emissão do certificado sejam verificadas no servidor. Um link simples para Google Forms não transmite uma nota confiável à plataforma; a integração automática com um formulário externo exige uma conexão autenticada com Google Forms/Apps Script e configuração adicional.
-
-Os links são hospedados pelo serviço que você escolher (por exemplo, vídeo ou armazenamento externo); a HighTech School controla quem vê o link dentro do curso, mas o controle de compartilhamento do próprio arquivo também deve ser configurado nesse serviço.
-
-Também é possível inserir uma aula diretamente no banco. O exemplo abaixo adiciona uma aula demonstrativa ao curso indicado, sem duplicá-la se a ordem já estiver ocupada:
-
-```sql
-INSERT INTO aulas (id_curso, titulo, descricao, conteudo, ordem)
-SELECT id, 'Introdução', 'Apresentação do curso e dos objetivos.',
-       'Leia o material de introdução e anote os principais objetivos de aprendizagem.', 1
-FROM cursos
-WHERE nome = 'Desenvolvimento Web & PHP'
-ON CONFLICT (id_curso, ordem) DO NOTHING;
-```
+1. Abra o **pgAdmin** e conecte-se ao servidor PostgreSQL.
+2. No navegador à esquerda, expanda **Servers → seu servidor → Databases** e clique uma vez no banco `hightech_school`.
+3. Clique com o botão direito nesse banco e escolha **Query Tool**.
+4. No Query Tool, use **Open File** e selecione o arquivo `database/schema.sql` dentro da pasta do projeto.
+5. Pressione **F5** (ou clique no botão **Execute**).
+6. O painel de mensagens deve indicar que os comandos `CREATE TABLE` foram executados.
 
 ### Passo 4: Configurar a conexão PHP
 
-A aplicação lê as configurações em `database/connect.php`. Configure as variáveis de ambiente para o ambiente em que o PHP será executado; não coloque senhas reais no repositório nem dependa dos valores padrão do arquivo:
+A aplicação lê as configurações em `database/connect.php`. Você pode definir variáveis de ambiente no seu sistema ou ajustar diretamente os valores padrão no arquivo:
 
-- `DB_HOST`: Endereço do servidor PostgreSQL (use `127.0.0.1` se estiver na mesma máquina).
-- `DB_PORT`: Porta do servidor PostgreSQL (normalmente `5432`).
-- `DB_NAME`: Nome do banco (neste guia, `hightech_school`).
-- `DB_USER` e `DB_PASS`: Usuário e senha PostgreSQL criados no passo 2.
-- `APP_ADMIN_EMAIL` e `APP_ADMIN_PASSWORD`: credenciais de uma conta administrativa da aplicação, se configuradas antes da primeira conexão.
-
-Observação: `APP_ADMIN_EMAIL` e `APP_ADMIN_PASSWORD` só criam a conta indicada se ela ainda não existir. O schema já insere `admin@hightech.com` com a senha de demonstração `admin123`, portanto definir essas variáveis não troca a senha dessa conta existente.
+- `DB_HOST`: Endereço do servidor PostgreSQL (padrão: `127.0.0.1`).
+- `DB_PORT`: Porta do servidor (padrão: `5432`).
+- `DB_NAME`: Nome da base de dados (padrão: `hightech_school`).
+- `DB_USER`: Usuário do banco (padrão: `postgres`).
+- `DB_PASS`: Senha do usuário do banco (padrão: vazia).
 
 Confirme que os módulos necessários estão habilitados:
 
@@ -167,7 +101,7 @@ Confirme que os módulos necessários estão habilitados:
 php -m
 ```
 
-Na lista apresentada, verifique a presença de `PDO` e `pdo_pgsql`.
+Na lista apresentada, verifique a presença de `PDO`, `pdo_pgsql` e `mbstring`.
 
 ### Passo 5: Iniciar a aplicação
 
@@ -183,174 +117,30 @@ Abra o endereço abaixo no navegador:
 http://localhost:8000
 ```
 
-O `index.php` redireciona para `portal_empresa.php`.
+O `index.php` redireciona para `aplicacao.php`, a página pública de cursos.
 
-### Passo 6: Criar uma conta e acessar
+### Primeiro administrador
 
-1. Acesse `http://localhost:8000/login/cadastrar.php` e use a opção **Cadastrar-se** para criar uma conta de aluno. O formulário cria a conta de usuário e o registro acadêmico correspondente.
-2. Por padrão, todas as contas criadas pelo formulário público recebem o perfil `aluno`.
-3. **Para promover um usuário a Administrador**, conecte ao banco com o usuário PostgreSQL `admin_school` (não com `postgres`):
-
-```bash
-psql -h 127.0.0.1 -U admin_school -d hightech_school
-```
-
-No console `psql`, atualize o e-mail da conta que você acabou de cadastrar:
-
-```sql
-UPDATE usuarios SET perfil = 'admin' WHERE email = 'seu_email@exemplo.com';
-DELETE FROM usuarios WHERE email = 'admin@hightech.com';
-\q
-```
-
-Confirme que o `UPDATE` alterou uma linha. O `DELETE` remove a conta administrativa de demonstração que vem no schema (`admin@hightech.com` / `admin123`); não a mantenha em uma máquina compartilhada. Com o perfil `admin`, novos menus de gestão serão liberados no cabeçalho: **Gestão Alunos**, **Gestão Cursos**, **Gestão de Aulas**, **Gestão de Provas** e **Matrículas**.
-
----
-
-## Guia de instalação em uma máquina Linux (MobaXterm / SSH)
-
-Este roteiro instala a aplicação para demonstração ou avaliação em uma máquina Linux. Ele usa um usuário PostgreSQL exclusivo para a aplicação e o servidor embutido do PHP, apropriado para testes, não para publicar um serviço de produção na internet.
-
-### 1. Conectar ao servidor
-
-No MobaXterm, use o terminal para entrar no servidor:
-
-```bash
-ssh usuario@ip_do_servidor
-```
-
-Exemplo:
-
-```bash
-ssh aluno@192.168.0.10
-```
-
-### 2. Verificar o ambiente
-
-```bash
-php -v
-psql --version
-```
-
-Se o PHP ou PostgreSQL não estiverem instalados, execute:
-
-```bash
-sudo apt update
-sudo apt install git php php-pgsql postgresql postgresql-contrib
-```
-
-### 3. Clonar o repositório
-
-```bash
-cd "$HOME"
-git clone https://github.com/joaorbm09/HighTech_school.git hightech_school
-cd "$HOME/hightech_school"
-```
-
-### 4. Criar o usuário PostgreSQL e o banco
-
-Abra o console como administrador do PostgreSQL:
-
-```bash
-sudo -u postgres psql
-```
-
-Crie uma role de login exclusiva da aplicação, defina uma senha forte e torne-a proprietária do banco. A senha é solicitada de forma interativa e não fica exposta no comando:
-
-```sql
-CREATE ROLE admin_school LOGIN;
-\password admin_school
-CREATE DATABASE hightech_school OWNER admin_school;
-\q
-```
-
-Não use `postgres` em `DB_USER`: essa conta serve para administração do servidor PostgreSQL. `admin_school` é a identidade de banco de dados da aplicação e é diferente tanto do usuário SSH/Linux quanto da conta administradora que fará login no site.
-
-### 5. Importar o schema da aplicação
-
-No diretório do projeto, importe o schema conectando como o proprietário do banco. O `-h 127.0.0.1` força a conexão TCP e permite autenticação pela senha criada no passo anterior:
-
-```bash
-cd "$HOME/hightech_school"
-psql -h 127.0.0.1 -U admin_school -d hightech_school -f database/schema.sql
-```
-
-Digite a senha de `admin_school` quando solicitada. Esse comando cria as tabelas e também carrega os dados de demonstração. Execute-o somente em um banco novo.
-
-### 6. Validar o usuário da aplicação
-
-Teste a conexão do usuário empregado pela aplicação:
-
-```bash
-psql -h 127.0.0.1 -U admin_school -d hightech_school -c "SELECT 1;"
-```
-
-Se o comando retornar `1`, a conexão está correta. Se houver erro de autenticação, confira a senha e as regras de conexão do PostgreSQL; não substitua o usuário por `postgres`.
-
-### 7. Configurar o ambiente PHP
-
-Defina as variáveis antes de iniciar o PHP, substituindo os valores entre aspas pela configuração desta máquina. Use a mesma senha criada no passo 4. O exemplo vale para o servidor embutido iniciado no mesmo terminal:
-
-```bash
-export DB_HOST='127.0.0.1'
-export DB_PORT='5432'
-export DB_NAME='hightech_school'
-export DB_USER='admin_school'
-export DB_PASS='substitua-pela-senha-forte-do-postgres'
-```
-
-As variáveis definidas com `export` ficam disponíveis apenas para esse terminal e processos iniciados por ele. Não compartilhe o terminal nem salve as senhas em arquivos públicos. Este roteiro cria a conta administrativa pelo cadastro e promoção descritos no passo 9; por isso, não defina `APP_ADMIN_EMAIL` nem `APP_ADMIN_PASSWORD` aqui. Se optar por defini-las, a aplicação poderá criar outra conta administrativa automaticamente na primeira conexão. Em Apache/PHP-FPM, configure as variáveis de banco no ambiente do serviço; exportá-las no SSH não as disponibiliza automaticamente para esses serviços.
-
-### 8. Iniciar a aplicação no servidor
-
-Para demonstração ou avaliação, inicie o servidor embutido do PHP:
-
-```bash
-cd "$HOME/hightech_school"
-php -S 0.0.0.0:8000
-```
-
-Em seguida, acesse no navegador:
-
-```text
-http://<IP_DO_SERVIDOR>:8000
-```
-
-O servidor embutido é destinado a desenvolvimento e avaliação, não a produção. Não o exponha diretamente à internet. Para uma publicação real, use um servidor web/PHP-FPM configurado com HTTPS, permissões e variáveis de ambiente próprias; simplesmente copiar os arquivos para `/var/www/html` não configura esses componentes.
-
-### 9. Criar o administrador da aplicação
-
-O usuário `admin_school` acessa o banco; ele não é uma conta de login do site. Abra `http://<IP_DO_SERVIDOR>:8000/login/cadastrar.php` e cadastre uma conta própria. Depois, promova essa conta a administradora no banco:
-
-```bash
-psql -h 127.0.0.1 -U admin_school -d hightech_school
-```
-
-No console `psql`, substitua o e-mail pelo usado no cadastro:
+1. Acesse `http://localhost:8000/login/cadastrar.php` e crie uma conta.
+2. Por padrão, todas as contas criadas recebem o perfil `aluno`.
+3. **Para promover um usuário a administrador**, execute no pgAdmin ou psql:
 
 ```sql
 UPDATE usuarios SET perfil = 'admin' WHERE email = 'seu-email@exemplo.com';
-DELETE FROM usuarios WHERE email = 'admin@hightech.com';
-SELECT email, perfil FROM usuarios WHERE perfil = 'admin';
-\q
 ```
 
-Confirme que o `UPDATE` alterou uma linha e que a consulta final lista somente a conta esperada. O `DELETE` remove do banco a conta de demonstração que vem no schema e cujas credenciais são públicas. Não a mantenha habilitada em uma máquina compartilhada ou acessível pela rede.
+4. Entre novamente. O menu administrativo permite gerenciar: **Usuários**, **Alunos**, **Cursos**, **Matrículas**, **Aulas** e **Provas**.
 
-### 10. Checklist final
+### Pastas principais
 
-Antes da apresentação, valide todos os itens abaixo:
-
-- [ ] PHP instalado;
-- [ ] PostgreSQL instalado;
-- [ ] banco `hightech_school` criado;
-- [ ] schema importado com sucesso;
-- [ ] role PostgreSQL `admin_school` criada com senha própria e dona do banco;
-- [ ] variáveis de ambiente do PHP configuradas sem usar senhas padrão;
-- [ ] servidor iniciado;
-- [ ] página inicial carregando;
-- [ ] conta própria promovida a administradora e conta de demonstração removida;
-- [ ] gestão de cursos e aulas acessível.
+| Pasta | Conteúdo |
+| --- | --- |
+| `app/` | Telas de gestão administrativa e de aprendizagem do aluno. |
+| `assets/` | Folha de estilos CSS compartilhada. |
+| `database/` | Conexão com o banco (`connect.php`) e esquema SQL (`schema.sql`). |
+| `docs/` | Documentação de tecnologias e roteiro de apresentação. |
+| `includes/` | Autenticação (`auth.php`), funções (`functions.php`), cabeçalho e rodapé. |
+| `login/` | Cadastro, login e logout. |
 
 ---
 
@@ -362,53 +152,44 @@ Especificação de Requisitos de Software (SRS), organizada como referência à 
 
 #### 1.1 Escopo do sistema
 
-Este documento descreve a aplicação **HighTech**, que reúne serviços de tecnologia para empresas e funcionalidades educacionais voltadas a alunos da HighTech School. A aplicação disponibiliza páginas públicas, autenticação de alunos e administradores, gestão de registros acadêmicos, divulgação de vagas e perfis profissionais, além do recebimento de solicitações corporativas.
+Este documento descreve a aplicação **HighTech School**, um sistema de gestão escolar que administra cursos, alunos, matrículas, aulas, avaliações e certificados. A aplicação disponibiliza páginas públicas, autenticação de alunos e administradores, fluxo de aprendizagem completo e gestão de registros acadêmicos.
 
-O sistema é implementado em PHP, utiliza PostgreSQL para persistência e acessa o banco por meio de PDO. O escopo documentado corresponde às páginas, operações e tabelas presentes neste repositório.
+O sistema é implementado em PHP, utiliza PostgreSQL para persistência e acessa o banco por meio de PDO.
 
 #### 1.2 Propósito
 
-O propósito do sistema é centralizar operações acadêmicas básicas, apresentar os serviços da empresa e conectar estudantes a oportunidades de tecnologia. A aplicação também serve como projeto de aprendizagem sobre desenvolvimento web, sessões, operações CRUD, relacionamento entre tabelas e integração PHP/PostgreSQL.
+O propósito do sistema é centralizar operações acadêmicas, oferecendo um fluxo educacional completo — da matrícula à certificação. A aplicação também serve como projeto de aprendizagem sobre desenvolvimento web, sessões, operações CRUD, relacionamento entre tabelas, segurança e integração PHP/PostgreSQL.
 
 ---
 
 ## 2. Descrição global
 
-#### 2.1 Prototipagem
-
-O repositório não contém um link de prototipagem ou especificação visual externa. A interface atual é implementada nas páginas PHP e estilizada pelo arquivo `assets/style.css`.
-
-#### 2.2 Funções do sistema
+#### 2.1 Funções do sistema
 
 O sistema oferece as seguintes funções principais:
 
-1. Apresentar os serviços corporativos e receber solicitações de diagnóstico tecnológico.
-2. Exibir cursos e permitir que visitantes enviem uma inscrição associada a um curso.
-3. Cadastrar alunos como usuários e autenticar contas existentes.
-4. Controlar o acesso às páginas administrativas de alunos, cursos e matrículas.
-5. Permitir que administradores cadastrem, consultem, editem e excluam alunos e cursos.
-6. Permitir que administradores criem e cancelem matrículas entre alunos e cursos.
-7. Disponibilizar ao aluno um painel com seus cursos e dados do perfil profissional.
-8. Permitir que administradores cadastrem, editem, ordenem, publiquem e ocultem aulas com links externos.
-9. Permitir que alunos com matrícula ativa acessem os links das aulas e registrem sua conclusão.
-10. Exibir no painel o progresso real das aulas de cada curso.
-11. Permitir que administradores configurem provas e cadastrem questões de múltipla escolha.
-12. Liberar a prova após a conclusão das aulas obrigatórias e registrar cada tentativa e nota.
-13. Emitir certificado automaticamente após aprovação e permitir a consulta pública de sua validade.
-14. Permitir que o aluno salve ou atualize um perfil de talento e faça matrícula rápida em outro curso.
-15. Exibir perfis públicos de talentos disponíveis e permitir busca por nome, título ou habilidades.
-16. Exibir vagas ativas e filtrar a listagem por modalidade de trabalho.
-17. Encerrar a sessão do usuário e redirecioná-lo ao portal público.
+1. Exibir cursos ativos e permitir inscrições públicas.
+2. Cadastrar alunos como usuários e autenticar contas existentes.
+3. Controlar o acesso às páginas administrativas por perfil.
+4. Permitir que administradores gerenciem usuários (contas de acesso), alunos, cursos e matrículas.
+5. Permitir que administradores cadastrem, editem, ordenem, publiquem e ocultem aulas com links externos.
+6. Permitir que alunos com matrícula ativa acessem aulas e registrem conclusão.
+7. Exibir no painel o progresso real das aulas de cada curso.
+8. Permitir que administradores configurem provas e cadastrem questões de múltipla escolha.
+9. Liberar a prova após conclusão das aulas obrigatórias e registrar cada tentativa e nota.
+10. Emitir certificado automaticamente após aprovação e permitir consulta pública.
+11. Disponibilizar ao aluno um painel com seus cursos, progresso e matrícula rápida.
+12. Encerrar a sessão do usuário e redirecioná-lo ao catálogo de cursos.
 
-#### 2.3 Classes de usuários
+#### 2.2 Classes de usuários
 
 | Usuário | Descrição e permissões |
 | --- | --- |
-| **Visitante** | Pode consultar páginas públicas, cursos, vagas e perfis públicos; também pode enviar solicitações empresariais e inscrições em cursos. |
-| **Aluno** | Pode autenticar, acessar o próprio painel, consultar suas matrículas, estudar aulas de cursos em que está matriculado, registrar o progresso, fazer provas liberadas, consultar certificados e salvar seu perfil profissional. |
-| **Administrador** | Pode acessar as telas administrativas de alunos, cursos, matrículas, aulas e provas, além das funções disponíveis ao usuário autenticado. |
+| **Visitante** | Pode consultar cursos e enviar inscrição. |
+| **Aluno** | Pode autenticar, acessar o painel, estudar aulas, fazer provas, consultar certificados e solicitar matrículas. |
+| **Administrador** | Pode acessar as telas de gestão de usuários, alunos, cursos, matrículas, aulas e provas, além das funções disponíveis ao aluno. |
 
-O cadastro público cria contas com o perfil `aluno`. O perfil `admin` precisa ser atribuído por um processo administrativo; o esquema SQL não cria uma conta administrativa.
+O cadastro público cria contas com perfil `aluno`. O perfil `admin` precisa ser atribuído por um processo administrativo.
 
 ---
 
@@ -420,270 +201,150 @@ O cadastro público cria contas com o perfil `aluno`. O perfil `admin` precisa s
 
 | ID | Título | Descrição | Prioridade |
 | --- | --- | --- | --- |
-| **RF01** | Cadastro de aluno | O sistema deve permitir que um visitante crie uma conta de aluno informando nome, e-mail e senha. | Alta |
-| **RF02** | Validação de cadastro | O sistema deve verificar o preenchimento dos campos obrigatórios, a confirmação da senha, o tamanho mínimo de seis caracteres e a existência prévia do e-mail. | Alta |
-| **RF03** | Autenticação | O sistema deve permitir que o usuário entre com e-mail e senha válidos. | Alta |
-| **RF04** | Controle de acesso | O sistema deve exigir autenticação para o painel do aluno e autenticação com perfil `admin` para as páginas administrativas. | Alta |
-| **RF05** | Encerramento da sessão | O sistema deve permitir que o usuário encerre a sessão e seja redirecionado ao portal. | Média |
-
-#### Módulo institucional e de solicitações empresariais
-
-| ID | Título | Descrição | Prioridade |
-| --- | --- | --- | --- |
-| **RF06** | Apresentação dos serviços | O sistema deve apresentar informações sobre os serviços corporativos e a HighTech School. | Média |
-| **RF07** | Solicitação de diagnóstico | O sistema deve permitir que uma empresa envie seus dados de contato, serviço de interesse e uma mensagem opcional. | Alta |
-| **RF08** | Retorno do envio | O sistema deve informar se a solicitação corporativa foi registrada ou se ocorreu uma falha. | Média |
+| **RF01** | Cadastro de aluno | O sistema deve permitir que um visitante crie uma conta informando nome, e-mail e senha. | Alta |
+| **RF02** | Validação de cadastro | O sistema deve verificar campos obrigatórios, confirmação de senha, tamanho mínimo de seis caracteres, e-mail duplicado e token CSRF. | Alta |
+| **RF03** | Autenticação | O sistema deve permitir login com e-mail e senha válidos. | Alta |
+| **RF04** | Controle de acesso | O sistema deve exigir autenticação para o painel e perfil `admin` para páginas administrativas. | Alta |
+| **RF05** | Encerramento da sessão | O sistema deve permitir logout e redirecionar ao catálogo. | Média |
 
 #### Módulo de cursos, alunos e matrículas
 
 | ID | Título | Descrição | Prioridade |
 | --- | --- | --- | --- |
-| **RF09** | Consulta de cursos | O sistema deve exibir os cursos cadastrados com categoria, descrição e carga horária. | Alta |
-| **RF10** | Inscrição pública | O sistema deve permitir que uma pessoa informe seus dados e selecione um curso para criar ou reutilizar um registro de aluno e solicitar matrícula. | Alta |
-| **RF11** | Gestão de alunos | O sistema deve permitir que administradores consultem, cadastrem, editem e excluam alunos. | Alta |
-| **RF12** | Gestão de cursos | O sistema deve permitir que administradores consultem, cadastrem, editem e excluam cursos. | Alta |
-| **RF13** | Gestão de matrículas | O sistema deve permitir que administradores criem matrículas, consultem a listagem combinada de alunos e cursos e cancelem matrículas. | Alta |
-| **RF14** | Painel individual do aluno | O sistema deve permitir que um aluno autenticado consulte seus cursos e a carga horária total exibida no painel. | Média |
-| **RF15** | Perfil profissional | O sistema deve permitir que o aluno crie ou atualize seu título profissional, biografia, links, habilidades e disponibilidade pública. | Média |
-| **RF16** | Matrícula rápida | O painel do aluno deve permitir o envio de solicitação de matrícula em outro curso. | Média |
-
-#### Módulo de talentos e oportunidades
-
-| ID | Título | Descrição | Prioridade |
-| --- | --- | --- | --- |
-| **RF17** | Vitrine de talentos | O sistema deve exibir perfis marcados como disponíveis de alunos ativos. | Média |
-| **RF18** | Busca de talentos | O sistema deve permitir filtrar a vitrine por nome, título profissional ou habilidades. | Média |
-| **RF19** | Mural de vagas | O sistema deve listar vagas ativas com informações de empresa, modalidade, contrato e candidatura. | Média |
-| **RF20** | Filtro de vagas | O sistema deve permitir filtrar as vagas por modalidade de trabalho. | Média |
+| **RF06** | Catálogo de cursos | O sistema deve exibir cursos com categoria, descrição e carga horária. | Alta |
+| **RF07** | Inscrição pública | O sistema deve permitir que uma pessoa envie dados e selecione um curso para inscrição. | Alta |
+| **RF08** | Gestão de usuários | O sistema deve permitir que administradores consultem, editem e excluam contas de acesso. | Alta |
+| **RF09** | Gestão de alunos | O sistema deve permitir que administradores cadastrem, editem e excluam alunos. | Alta |
+| **RF10** | Gestão de cursos | O sistema deve permitir que administradores cadastrem, editem e excluam cursos. | Alta |
+| **RF11** | Gestão de matrículas | O sistema deve permitir que administradores criem e cancelem matrículas. | Alta |
+| **RF12** | Painel do aluno | O sistema deve exibir ao aluno seus cursos, progresso e permitir matrícula rápida. | Média |
 
 #### Módulo de aulas, avaliações e certificação
 
 | ID | Título | Descrição | Prioridade |
 | --- | --- | --- | --- |
-| **RF21** | Acesso às aulas | O sistema deve liberar o conteúdo de um curso somente para aluno autenticado com matrícula ativa nesse curso. | Alta |
-| **RF22** | Registro de progresso | O sistema deve permitir que o aluno marque como concluída uma aula ativa do curso em que está matriculado e exibir seu progresso no painel. | Alta |
-| **RF23** | Gestão de aulas | O sistema deve permitir que administradores cadastrem, editem, ordenem, publiquem e ocultem aulas e seus links de material por curso. | Alta |
-| **RF24** | Gestão de prova | O sistema deve permitir que administradores configurem a nota mínima, o limite de tentativas, o estado da prova e questões de múltipla escolha por curso. | Alta |
-| **RF25** | Realização de prova | O sistema deve liberar a prova a alunos com matrícula ativa após a conclusão das aulas obrigatórias, corrigir as respostas no servidor e registrar a nota. | Alta |
-| **RF26** | Certificado verificável | O sistema deve emitir um código único após aprovação e permitir visualizar, imprimir e validar publicamente o certificado. | Alta |
+| **RF13** | Acesso às aulas | O sistema deve liberar aulas somente para aluno com matrícula ativa. | Alta |
+| **RF14** | Registro de progresso | O sistema deve permitir que o aluno marque aulas como concluídas. | Alta |
+| **RF15** | Gestão de aulas | Administradores devem poder cadastrar, editar, ordenar, publicar e ocultar aulas. | Alta |
+| **RF16** | Gestão de provas | Administradores devem poder configurar nota mínima, tentativas e questões. | Alta |
+| **RF17** | Realização de prova | A prova deve ser liberada após conclusão das aulas obrigatórias, corrigida no servidor. | Alta |
+| **RF18** | Certificado verificável | Emissão de código UUID após aprovação, com validação pública. | Alta |
 
 ### 3.2 Requisitos não funcionais
 
-#### Módulo de ambiente e arquitetura
-
 | ID | Título | Descrição | Prioridade |
 | --- | --- | --- | --- |
-| **RNF01** | Tecnologias de execução | A aplicação deve executar em PHP 7.4 ou superior com PDO e `pdo_pgsql`, e utilizar PostgreSQL como banco de dados. | Alta |
-| **RNF02** | Separação de responsabilidades | A conexão, autenticação, funções de dados, páginas e estilos devem permanecer organizados nos arquivos e diretórios próprios do projeto. | Média |
-| **RNF03** | Compatibilidade web | As páginas devem ser acessíveis por navegadores web modernos sem instalação de um cliente específico. | Média |
-
-#### Módulo de segurança e integridade
-
-| ID | Título | Descrição | Prioridade |
-| --- | --- | --- | --- |
-| **RNF04** | Acesso ao banco | Os valores fornecidos pelo usuário em operações SQL devem ser enviados por parâmetros PDO em vez de concatenados às consultas. | Alta |
-| **RNF05** | Proteção de senhas | As senhas de usuários devem ser armazenadas por meio de hash e verificadas sem salvar senha em texto simples. | Alta |
-| **RNF06** | Proteção de páginas | As páginas administrativas e o painel individual devem validar a sessão e o perfil antes de apresentar os dados. | Alta |
-| **RNF07** | Saída HTML | Os valores de dados dinâmicos apresentados em HTML devem ser escapados para reduzir a possibilidade de injeção de marcação ou script. | Alta |
-| **RNF08** | Integridade referencial | As relações entre alunos, cursos, matrículas e perfis devem ser protegidas por chaves estrangeiras no banco de dados. | Alta |
-| **RNF09** | Configuração de credenciais | Credenciais de conexão devem ser substituídas pelos valores do ambiente local e não devem ser publicadas como segredos de produção. | Alta |
-
-#### Módulo de usabilidade e apresentação
-
-| ID | Título | Descrição | Prioridade |
-| --- | --- | --- | --- |
-| **RNF10** | Interface consistente | As páginas devem reutilizar os estilos globais e os componentes compartilhados de cabeçalho e rodapé. | Média |
-| **RNF11** | Layout adaptável | Grades e formulários devem se reorganizar de acordo com o espaço disponível na tela. | Média |
-| **RNF12** | Feedback de operações | O sistema deve apresentar mensagens de sucesso, erro ou validação para operações de formulários. | Média |
+| **RNF01** | Tecnologias | PHP 7.4+ com PDO, `pdo_pgsql` e `mbstring`; PostgreSQL. | Alta |
+| **RNF02** | Separação de responsabilidades | Conexão, autenticação, funções, páginas e estilos em arquivos próprios. | Média |
+| **RNF03** | Compatibilidade web | Acessível por navegadores modernos sem cliente específico. | Média |
+| **RNF04** | Acesso ao banco | Valores do usuário enviados por parâmetros PDO (prepared statements). | Alta |
+| **RNF05** | Proteção de senhas | Senhas armazenadas como hash bcrypt. | Alta |
+| **RNF06** | Proteção de páginas | Sessão e perfil validados antes de exibir dados. | Alta |
+| **RNF07** | Saída HTML | Dados dinâmicos escapados com `htmlspecialchars`. | Alta |
+| **RNF08** | Integridade referencial | Chaves estrangeiras com `ON DELETE CASCADE` no banco. | Alta |
+| **RNF09** | Interface consistente | Cabeçalho, navegação e rodapé reutilizados via includes. | Média |
+| **RNF10** | Layout adaptável | Grids e formulários responsivos via CSS. | Média |
+| **RNF11** | Feedback de operações | Mensagens de sucesso, erro e validação nos formulários. | Média |
 
 ### 3.3 Regras de negócio
 
-#### Módulo de contas e permissões
-
 | ID | Título | Regra / condição |
 | --- | --- | --- |
-| **RN01** | Perfil inicial de cadastro | Contas criadas pelo formulário público recebem o perfil `aluno`. |
-| **RN02** | Acesso administrativo | Somente uma sessão autenticada cujo perfil seja `admin` pode acessar as páginas administrativas de alunos, cursos, matrículas, aulas e provas. |
-| **RN03** | Acesso ao painel do aluno | O painel individual exige uma sessão autenticada. |
-| **RN04** | Senha de conta | O cadastro rejeita senhas com menos de seis caracteres e exige que a confirmação corresponda à senha. |
-
-#### Módulo acadêmico
-
-| ID | Título | Regra / condição |
-| --- | --- | --- |
-| **RN05** | Campos obrigatórios de aluno | Nome e e-mail são obrigatórios nas operações administrativas de cadastro e atualização de aluno. |
-| **RN06** | Campos obrigatórios de curso | Nome, categoria e carga horária maior que zero são necessários para salvar um curso pela tela administrativa. |
-| **RN07** | Relação de matrícula | Cada matrícula referencia um aluno e um curso existentes. |
-| **RN08** | Exclusão em cascata | A exclusão de aluno ou curso remove do banco os registros de matrícula associados; a exclusão de aluno também remove seu perfil de talento. |
-| **RN09** | Perfil de talento por aluno | Cada aluno pode ter no máximo um perfil de talento, conforme a restrição única de `perfil_talento.id_aluno`. |
-| **RN10** | Visibilidade de talentos | A vitrine pública inclui apenas perfis com `disponivel_mercado = true` pertencentes a alunos ativos. |
-
-#### Módulo corporativo e de oportunidades
-
-| ID | Título | Regra / condição |
-| --- | --- | --- |
-| **RN11** | Solicitação empresarial | Empresa, responsável, e-mail e serviço de interesse são obrigatórios no formulário do portal; a nova solicitação recebe status `Pendente`. |
-| **RN12** | Exibição de vagas | A listagem pública apresenta somente vagas ativas por padrão. |
-| **RN13** | Candidatura | O contato de candidatura pode ser exibido como endereço de e-mail ou como link fornecido no cadastro da vaga. |
-| **RN14** | CPF opcional e único quando informado | O CPF pode ficar vazio; quando informado, o índice parcial impede repetições entre valores não nulos. |
-
-#### Módulo de aulas, avaliações e dados do aluno
-
-| ID | Título | Regra / condição |
-| --- | --- | --- |
-| **RN15** | Liberação da prova | A prova ativa só pode ser realizada com matrícula ativa e após concluir todas as aulas obrigatórias que estejam publicadas. |
-| **RN16** | Aprovação | A nota da prova é calculada no servidor e deve atingir ou superar a nota mínima configurada para o curso. |
-| **RN17** | Limite de tentativas | A prova impede novas tentativas depois de atingir o limite configurado, entre 1 e 20 tentativas. |
-| **RN18** | Emissão única | Cada matrícula aprovada recebe um único certificado com código aleatório para validação pública. |
-| **RN19** | Faixa etária do aluno | A data de nascimento, quando informada, deve corresponder a uma idade entre 14 e 100 anos, rejeitando datas futuras ou incompatíveis com o público da escola. |
+| **RN01** | Perfil inicial | Contas criadas pelo formulário recebem perfil `aluno`. |
+| **RN02** | Acesso administrativo | Somente perfil `admin` acessa páginas de gestão. |
+| **RN03** | Acesso ao painel | O painel exige sessão autenticada. |
+| **RN04** | Senha | Mínimo de 6 caracteres; confirmação deve corresponder. |
+| **RN05** | Campos obrigatórios de aluno | Nome e e-mail são obrigatórios. |
+| **RN06** | Campos obrigatórios de curso | Nome, categoria e carga horária > 0. |
+| **RN07** | Relação de matrícula | Referencia aluno e curso existentes; par (aluno, curso) é único. |
+| **RN08** | Exclusão em cascata | Exclusão de aluno ou curso remove matrículas associadas. |
+| **RN09** | Liberação da prova | Exige matrícula ativa e conclusão de todas as aulas obrigatórias publicadas. |
+| **RN10** | Aprovação | Nota calculada no servidor deve atingir a nota mínima. |
+| **RN11** | Limite de tentativas | Entre 1 e 20 tentativas por prova. |
+| **RN12** | Emissão única | Um certificado por matrícula, com código UUID para validação pública. |
+| **RN13** | Idade | Data de nascimento, quando informada, deve corresponder a idade entre 14 e 100 anos. |
+| **RN14** | Gestão de contas | Não é possível excluir a própria conta nem o último administrador. |
 
 ---
 
 ## 4. Estruturação do banco de dados
 
-O banco PostgreSQL utiliza quatorze tabelas. Os campos e as regras abaixo correspondem ao arquivo `database/schema.sql`.
+O banco PostgreSQL utiliza 9 tabelas principais. Os campos correspondem ao arquivo `database/schema.sql`.
 
 #### Entidade: `usuarios` (contas de acesso)
-
-Armazena as credenciais e o perfil de acesso de cada usuário.
 
 | Campo | Tipo | Restrições | Descrição |
 | --- | --- | --- | --- |
 | `id` | SERIAL | PRIMARY KEY | Identificador da conta. |
-| `nome` | VARCHAR(100) | NOT NULL | Nome exibido nas páginas autenticadas. |
-| `email` | VARCHAR(100) | UNIQUE, NOT NULL | Endereço usado no login; não pode se repetir. |
-| `senha` | VARCHAR(255) | NOT NULL | Hash de senha gerado pela aplicação. |
-| `perfil` | VARCHAR(20) | DEFAULT 'aluno' | Perfil de acesso, por exemplo `aluno` ou `admin`. |
-| `criado_em` | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | Data e hora de criação da conta. |
+| `nome` | VARCHAR(100) | NOT NULL | Nome exibido nas páginas. |
+| `email` | VARCHAR(100) | UNIQUE, NOT NULL | E-mail usado no login. |
+| `senha` | VARCHAR(255) | NOT NULL | Hash de senha. |
+| `perfil` | VARCHAR(20) | DEFAULT 'aluno', CHECK | Perfil: `aluno` ou `admin`. |
+| `criado_em` | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | Data de criação. |
 
 #### Entidade: `alunos` (cadastro acadêmico)
-
-Armazena os dados acadêmicos e de contato do aluno. O cadastro acadêmico é separado da conta de autenticação.
 
 | Campo | Tipo | Restrições | Descrição |
 | --- | --- | --- | --- |
 | `id` | SERIAL | PRIMARY KEY | Identificador do aluno. |
 | `nome` | VARCHAR(100) | NOT NULL | Nome completo. |
-| `cpf` | VARCHAR(14) | Opcional; índice único parcial | Documento opcional; valores não nulos não podem se repetir. |
-| `email` | VARCHAR(100) | NOT NULL | E-mail de contato e associação com a conta. |
-| `turma` | VARCHAR(20) | Opcional | Turma ou grupo acadêmico. |
+| `cpf` | VARCHAR(14) | UNIQUE | Documento opcional. |
+| `email` | VARCHAR(100) | NOT NULL, índice unique | E-mail de contato. |
+| `turma` | VARCHAR(20) | Opcional | Turma acadêmica. |
 | `nascimento` | DATE | Opcional | Data de nascimento. |
-| `ativo` | BOOLEAN | DEFAULT true | Indica se o aluno está ativo. |
-| `criado_em` | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | Data e hora de criação do registro. |
+| `ativo` | BOOLEAN | DEFAULT true | Status do aluno. |
+| `criado_em` | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | Data de criação. |
 
-#### Entidade: `cursos` (catálogo da escola)
-
-Armazena os cursos oferecidos pela HighTech School.
+#### Entidade: `cursos`
 
 | Campo | Tipo | Restrições | Descrição |
 | --- | --- | --- | --- |
-| `id` | SERIAL | PRIMARY KEY | Identificador do curso. |
-| `nome` | VARCHAR(100) | NOT NULL | Nome do curso. |
-| `categoria` | VARCHAR(50) | NOT NULL | Área ou categoria do curso. |
-| `descricao` | TEXT | Opcional | Descrição do conteúdo. |
-| `carga_horaria` | INT | NOT NULL | Duração do curso em horas. |
-| `ativo` | BOOLEAN | DEFAULT true | Indica se o curso está ativo. |
+| `id` | SERIAL | PRIMARY KEY | Identificador. |
+| `nome` | VARCHAR(100) | NOT NULL, UNIQUE | Nome do curso. |
+| `categoria` | VARCHAR(50) | NOT NULL | Área do curso. |
+| `descricao` | TEXT | Opcional | Descrição. |
+| `carga_horaria` | INT | NOT NULL, CHECK > 0 | Duração em horas. |
+| `ativo` | BOOLEAN | DEFAULT true | Status. |
 
-#### Entidade: `matriculas` (relação entre alunos e cursos)
-
-Implementa a associação muitos-para-muitos entre alunos e cursos.
+#### Entidade: `matriculas`
 
 | Campo | Tipo | Restrições | Descrição |
 | --- | --- | --- | --- |
-| `id` | SERIAL | PRIMARY KEY | Identificador da matrícula. |
-| `id_aluno` | INT | NOT NULL, FOREIGN KEY | Referência a `alunos.id`; removida em cascata com o aluno. |
-| `id_curso` | INT | NOT NULL, FOREIGN KEY | Referência a `cursos.id`; removida em cascata com o curso. |
-| `data_matricula` | DATE | DEFAULT CURRENT_DATE | Data da matrícula. |
-| `status` | VARCHAR(20) | DEFAULT 'Ativa' | Situação da matrícula, como ativa, concluída ou trancada. |
+| `id` | SERIAL | PRIMARY KEY | Identificador. |
+| `id_aluno` | INT | FK → alunos, CASCADE | Aluno. |
+| `id_curso` | INT | FK → cursos, CASCADE | Curso. |
+| `data_matricula` | DATE | DEFAULT CURRENT_DATE | Data. |
+| `status` | VARCHAR(20) | DEFAULT 'Ativa' | Situação. |
 
-#### Entidade: `aulas` e `progresso_aulas`
-
-`aulas` armazena os materiais publicados em cada curso. `progresso_aulas` registra a conclusão por matrícula e impede duplicar o registro da mesma aula.
+#### Entidades de aulas e progresso
 
 | Tabela | Campo | Tipo | Restrições | Descrição |
 | --- | --- | --- | --- | --- |
-| `aulas` | `id` | SERIAL | PRIMARY KEY | Identificador da aula. |
-| `aulas` | `id_curso` | INT | NOT NULL, FOREIGN KEY | Curso ao qual a aula pertence; remoção em cascata. |
-| `aulas` | `titulo` | VARCHAR(150) | NOT NULL | Título exibido ao aluno. |
-| `aulas` | `descricao`, `conteudo` | TEXT | Opcional | Descrição e material textual da aula. |
-| `aulas` | `video_url` | VARCHAR(500) | Opcional | Endereço externo do material em vídeo. |
-| `aulas` | `ordem` | INT | NOT NULL, UNIQUE por curso | Posição da aula na sequência do curso. |
-| `aulas` | `obrigatoria`, `ativa` | BOOLEAN | DEFAULT true | Indica se a aula é obrigatória e se está publicada. |
-| `progresso_aulas` | `id_matricula`, `id_aula` | INT | FOREIGN KEY, UNIQUE em conjunto | Associa a conclusão à matrícula e à aula. |
-| `progresso_aulas` | `concluida_em` | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | Data e hora em que o aluno marcou a aula como concluída. |
+| `aulas` | `id` | SERIAL | PK | Identificador. |
+| `aulas` | `id_curso` | INT | FK → cursos, CASCADE | Curso. |
+| `aulas` | `titulo` | VARCHAR(150) | NOT NULL | Título. |
+| `aulas` | `descricao`, `conteudo` | TEXT | Opcional | Material. |
+| `aulas` | `video_url` | VARCHAR(500) | Opcional | Link do material. |
+| `aulas` | `ordem` | INT | NOT NULL, UNIQUE por curso | Posição. |
+| `aulas` | `obrigatoria`, `ativa` | BOOLEAN | DEFAULT true | Flags. |
+| `progresso_aulas` | `id_matricula`, `id_aula` | INT | FK, UNIQUE em conjunto | Matrícula + aula. |
+| `progresso_aulas` | `concluida_em` | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | Quando concluiu. |
 
 #### Entidades de provas, questões e certificados
 
-Cada curso pode ter uma prova, composta por questões de múltipla escolha com quatro alternativas. A tentativa registra nota e respostas; a aprovação gera um certificado com código UUID único.
-
 | Tabela | Campos principais | Regras |
 | --- | --- | --- |
-| `provas` | `id`, `id_curso`, `nota_minima`, `max_tentativas`, `ativa` | Uma prova por curso; nota de 1 a 100 e limite de 1 a 20 tentativas. |
-| `questoes_prova` | `id`, `id_prova`, `enunciado`, `ordem` | Questões pertencentes à prova; ordem única dentro da avaliação. |
-| `alternativas_prova` | `id`, `id_questao`, `texto`, `correta` | Quatro alternativas por questão, com somente uma resposta correta definida pela gestão. |
-| `tentativas_prova` | `id`, `id_matricula`, `id_prova`, `nota`, `aprovada`, `respostas`, `realizada_em` | Guarda o resultado calculado no servidor e as respostas submetidas em JSONB. |
-| `certificados` | `id`, `id_matricula`, `id_prova`, `codigo`, `emitido_em` | No máximo um certificado por matrícula; código UUID único usado para validação pública. |
-
-#### Entidade: `solicitacoes_empresas` (contatos corporativos)
-
-Registra os pedidos de diagnóstico tecnológico enviados pelo portal da empresa.
-
-| Campo | Tipo | Restrições | Descrição |
-| --- | --- | --- | --- |
-| `id` | SERIAL | PRIMARY KEY | Identificador da solicitação. |
-| `nome_empresa` | VARCHAR(150) | NOT NULL | Nome da empresa ou organização. |
-| `cnpj` | VARCHAR(20) | Opcional | CNPJ informado pela empresa. |
-| `responsavel` | VARCHAR(100) | NOT NULL | Pessoa de contato. |
-| `email` | VARCHAR(100) | NOT NULL | E-mail para retorno. |
-| `telefone` | VARCHAR(25) | Opcional | Telefone ou WhatsApp. |
-| `tamanho_equipe` | VARCHAR(50) | Opcional | Faixa de tamanho da organização. |
-| `servico_interesse` | VARCHAR(100) | NOT NULL | Serviço sobre o qual a empresa quer conversar. |
-| `mensagem` | TEXT | Opcional | Contexto ou descrição do desafio. |
-| `status` | VARCHAR(30) | DEFAULT 'Pendente' | Situação da solicitação. |
-| `criado_em` | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | Data e hora do envio. |
-
-#### Entidade: `vagas` (oportunidades profissionais)
-
-Armazena as oportunidades exibidas no mural público.
-
-| Campo | Tipo | Restrições | Descrição |
-| --- | --- | --- | --- |
-| `id` | SERIAL | PRIMARY KEY | Identificador da vaga. |
-| `titulo` | VARCHAR(150) | NOT NULL | Cargo ou título da oportunidade. |
-| `empresa` | VARCHAR(150) | NOT NULL | Empresa contratante. |
-| `modalidade` | VARCHAR(50) | DEFAULT 'Remoto' | Modalidade, por exemplo remoto, híbrido ou presencial. |
-| `tipo_contrato` | VARCHAR(50) | DEFAULT 'CLT' | Tipo de vínculo, por exemplo CLT, PJ ou estágio. |
-| `localizacao` | VARCHAR(100) | DEFAULT 'Brasil' | Cidade ou abrangência geográfica. |
-| `salario` | VARCHAR(50) | Opcional | Faixa salarial em formato textual. |
-| `descricao` | TEXT | NOT NULL | Descrição da oportunidade. |
-| `requisitos` | TEXT | Opcional | Requisitos e conhecimentos desejados. |
-| `contato_candidatura` | VARCHAR(255) | Opcional | E-mail ou endereço para candidatura. |
-| `ativa` | BOOLEAN | DEFAULT true | Controla se a vaga aparece na listagem pública. |
-| `criado_em` | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | Data e hora de criação. |
-
-#### Entidade: `perfil_talento` (perfil profissional)
-
-Armazena dados profissionais opcionais associados a um aluno.
-
-| Campo | Tipo | Restrições | Descrição |
-| --- | --- | --- | --- |
-| `id` | SERIAL | PRIMARY KEY | Identificador do perfil. |
-| `id_aluno` | INT | NOT NULL, FOREIGN KEY, UNIQUE | Referência única a `alunos.id`; perfil removido em cascata com o aluno. |
-| `titulo_profissional` | VARCHAR(100) | Opcional | Cargo ou especialidade. |
-| `bio` | TEXT | Opcional | Resumo profissional. |
-| `linkedin` | VARCHAR(255) | Opcional | Link para o LinkedIn. |
-| `github` | VARCHAR(255) | Opcional | Link para GitHub ou portfólio. |
-| `habilidades` | VARCHAR(255) | Opcional | Habilidades, normalmente separadas por vírgulas. |
-| `disponivel_mercado` | BOOLEAN | DEFAULT true | Controla se o perfil pode ser exibido na vitrine. |
-| `atualizado_em` | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | Data e hora da última atualização registrada. |
+| `provas` | `id`, `id_curso`, `nota_minima`, `max_tentativas`, `ativa` | Uma prova por curso; nota de 1 a 100; 1 a 20 tentativas. |
+| `questoes_prova` | `id`, `id_prova`, `enunciado`, `ordem` | Ordem única dentro da prova. |
+| `alternativas_prova` | `id`, `id_questao`, `texto`, `correta` | Alternativas com uma resposta correta. |
+| `tentativas_prova` | `id`, `id_matricula`, `id_prova`, `nota`, `aprovada`, `respostas`, `realizada_em` | Resultado e respostas em JSONB. |
+| `certificados` | `id`, `id_matricula`, `id_prova`, `codigo`, `emitido_em` | Um por matrícula; código UUID único. |
 
 ---
 
 ## 5. Diagramas
 
 ### 5.1 Diagrama de entidade-relacionamento (DER)
-
-O diagrama representa as tabelas e os relacionamentos definidos no esquema PostgreSQL.
 
 ```mermaid
 erDiagram
@@ -707,7 +368,7 @@ erDiagram
     }
     CURSOS {
         int id PK
-        varchar nome
+        varchar nome UK
         varchar categoria
         text descricao
         int carga_horaria
@@ -769,32 +430,6 @@ erDiagram
         uuid codigo UK
         timestamp emitido_em
     }
-    SOLICITACOES_EMPRESAS {
-        int id PK
-        varchar nome_empresa
-        varchar responsavel
-        varchar email
-        varchar servico_interesse
-        varchar status
-        timestamp criado_em
-    }
-    VAGAS {
-        int id PK
-        varchar titulo
-        varchar empresa
-        varchar modalidade
-        boolean ativa
-        timestamp criado_em
-    }
-    PERFIL_TALENTO {
-        int id PK
-        int id_aluno FK, UK
-        varchar titulo_profissional
-        text bio
-        varchar habilidades
-        boolean disponivel_mercado
-        timestamp atualizado_em
-    }
     ALUNOS ||--o{ MATRICULAS : realiza
     CURSOS ||--o{ MATRICULAS : recebe
     CURSOS ||--o{ AULAS : possui
@@ -807,57 +442,47 @@ erDiagram
     PROVAS ||--o{ TENTATIVAS_PROVA : recebe
     MATRICULAS ||--o| CERTIFICADOS : conquista
     PROVAS ||--o{ CERTIFICADOS : aprova
-    ALUNOS ||--o| PERFIL_TALENTO : possui
 ```
 
-`USUARIOS` e `ALUNOS` são tabelas distintas e não possuem uma chave estrangeira entre si no esquema atual; as páginas associam os registros pelo e-mail.
+`USUARIOS` e `ALUNOS` são tabelas distintas; as páginas associam os registros pelo e-mail.
 
 ### 5.2 Diagrama de casos de uso
-
-O diagrama resume as ações disponíveis para visitantes, alunos e administradores. A autorização das telas administrativas é verificada no servidor.
 
 ```mermaid
 flowchart LR
     Visitante["Visitante"]
     Aluno["Aluno autenticado"]
     Admin["Administrador"]
-    subgraph HighTech["Sistema HighTech"]
-        Portal(["Consultar portal e serviços"])
+    subgraph HighTechSchool["Sistema HighTech School"]
         Cursos(["Consultar cursos"])
         Inscricao(["Enviar inscrição em curso"])
-        Solicitar(["Enviar solicitação empresarial"])
-        Vagas(["Consultar e filtrar vagas"])
-        Talentos(["Consultar e buscar talentos"])
         Cadastro(["Criar conta de aluno"])
         Login(["Entrar ou sair da conta"])
         Painel(["Consultar painel pessoal"])
-        Perfil(["Criar ou atualizar perfil profissional"])
         MatriculaRapida(["Solicitar matrícula em curso"])
         EstudarAulas(["Acessar aulas e registrar progresso"])
         FazerProva(["Fazer prova do curso"])
         ConsultarCertificado(["Consultar ou validar certificado"])
+        GestaoUsuarios(["Gerenciar usuários"])
         GestaoAlunos(["Gerenciar alunos"])
         GestaoCursos(["Gerenciar cursos"])
         GestaoMatriculas(["Gerenciar matrículas"])
         GestaoAulas(["Gerenciar aulas e links"])
         GestaoProvas(["Configurar provas e questões"])
     end
-    Visitante --> Portal
     Visitante --> Cursos
     Visitante --> Inscricao
-    Visitante --> Solicitar
-    Visitante --> Vagas
-    Visitante --> Talentos
     Visitante --> Cadastro
     Visitante --> Login
+    Visitante --> ConsultarCertificado
     Aluno --> Login
     Aluno --> Painel
-    Aluno --> Perfil
     Aluno --> MatriculaRapida
     Aluno --> EstudarAulas
     Aluno --> FazerProva
     Aluno --> ConsultarCertificado
     Admin --> Login
+    Admin --> GestaoUsuarios
     Admin --> GestaoAlunos
     Admin --> GestaoCursos
     Admin --> GestaoMatriculas
@@ -867,7 +492,7 @@ flowchart LR
 
 ### 5.3 Diagrama de classes conceitual
 
-O diagrama apresenta uma visão conceitual das entidades persistidas e das associações existentes. Ele não representa classes PHP: o projeto implementa as operações como funções e páginas.
+O diagrama apresenta uma visão conceitual das entidades persistidas. Ele não representa classes PHP: o projeto implementa as operações como funções e páginas.
 
 ```mermaid
 classDiagram
@@ -950,32 +575,6 @@ classDiagram
         +string codigo
         +timestamp emitido_em
     }
-    class SolicitacaoEmpresa {
-        +int id
-        +string nome_empresa
-        +string responsavel
-        +string email
-        +string servico_interesse
-        +string status
-    }
-    class Vaga {
-        +int id
-        +string titulo
-        +string empresa
-        +string modalidade
-        +string tipo_contrato
-        +bool ativa
-    }
-    class PerfilTalento {
-        +int id
-        +int id_aluno
-        +string titulo_profissional
-        +string bio
-        +string linkedin
-        +string github
-        +string habilidades
-        +bool disponivel_mercado
-    }
     Aluno "1" --> "0..*" Matricula : realiza
     Curso "1" --> "0..*" Matricula : recebe
     Curso "1" --> "0..*" Aula : possui
@@ -987,16 +586,15 @@ classDiagram
     Matricula "1" --> "0..*" TentativaProva : realiza
     Prova "1" --> "0..*" TentativaProva : recebe
     Matricula "1" --> "0..1" Certificado : conquista
-    Aluno "1" --> "0..1" PerfilTalento : possui
 ```
 
 ### 5.4 Diagrama de fluxo de inscrição em curso
 
-O fluxo abaixo representa, em alto nível, o envio público de inscrição tratado por `aplicacao.php`.
+O fluxo abaixo representa o envio público de inscrição tratado por `aplicacao.php`.
 
 ```mermaid
 flowchart TD
-    Inicio([Visitante abre a HighTech School])
+    Inicio(["Visitante abre a HighTech School"])
     Exibir["Sistema lista os cursos disponíveis"]
     Preencher["Pessoa informa nome, e-mail e curso"]
     Enviar["Formulário envia os dados por POST"]
@@ -1009,7 +607,7 @@ flowchart TD
     Matricular{"Foi possível identificar o aluno e criar matrícula?"}
     Sucesso["Sistema exibe confirmação da inscrição"]
     ErroMatricula["Sistema exibe mensagem de falha"]
-    Fim([Página apresenta o resultado])
+    Fim(["Página apresenta o resultado"])
     Inicio --> Exibir --> Preencher --> Enviar --> Validar
     Validar -- Não --> ErroCampos --> Fim
     Validar -- Sim --> BuscarAluno --> Existe
@@ -1017,4 +615,37 @@ flowchart TD
     Existe -- Não --> CriarAluno --> Matricular
     Matricular -- Sim --> Sucesso --> Fim
     Matricular -- Não --> ErroMatricula --> Fim
+```
+
+### 5.5 Diagrama de fluxo de aprendizagem
+
+```mermaid
+flowchart TD
+    Inicio(["Aluno faz login"])
+    Painel["Acessa o painel pessoal"]
+    Matricula{"Tem matrícula ativa?"}
+    SolicitarMatricula["Solicita matrícula em um curso"]
+    VerAulas["Acessa as aulas do curso"]
+    EstudarAula["Abre o material da aula"]
+    Concluir["Marca a aula como concluída"]
+    TodasConcluidas{"Todas as aulas obrigatórias concluídas?"}
+    ProximaAula["Avança para a próxima aula"]
+    ProvaLiberada["Prova liberada"]
+    FazerProva["Responde a prova"]
+    Correcao["Servidor corrige as respostas"]
+    Aprovado{"Nota >= nota mínima?"}
+    Certificado["Certificado emitido com código UUID"]
+    Reprovado{"Tentativas restantes?"}
+    TentarNovamente["Pode tentar novamente"]
+    LimiteTentativas["Limite de tentativas atingido"]
+    Fim(["Fim do fluxo"])
+    Inicio --> Painel --> Matricula
+    Matricula -- Não --> SolicitarMatricula --> Painel
+    Matricula -- Sim --> VerAulas --> EstudarAula --> Concluir --> TodasConcluidas
+    TodasConcluidas -- Não --> ProximaAula --> EstudarAula
+    TodasConcluidas -- Sim --> ProvaLiberada --> FazerProva --> Correcao --> Aprovado
+    Aprovado -- Sim --> Certificado --> Fim
+    Aprovado -- Não --> Reprovado
+    Reprovado -- Sim --> TentarNovamente --> FazerProva
+    Reprovado -- Não --> LimiteTentativas --> Fim
 ```
