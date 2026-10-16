@@ -77,7 +77,7 @@ Se o banco `hightech_school` já existir, escolha outro nome ou remova somente o
 Na raiz do repositório, execute o script SQL:
 
 ```bash
-psql -U postgres -d hightech_school -f database/schema.sql
+psql -U admin_school -d hightech_school -f database/schema.sql
 ```
 
 O arquivo `database/schema.sql` cria as 9 tabelas do sistema (usuarios, alunos, cursos, matriculas, aulas, progresso_aulas, provas, questoes_prova, alternativas_prova, tentativas_prova, certificados) e insere dois cursos iniciais de demonstração.
@@ -182,9 +182,9 @@ sudo apt install git php php-pgsql postgresql postgresql-contrib
 ### 3. Clonar o repositório
 
 ```bash
-cd "$HOME"
+cd ~
 git clone https://github.com/joaorbm09/HighTech_school.git hightech_school
-cd "$HOME/hightech_school"
+cd ~/hightech_school
 ```
 
 ### 4. Criar o usuário PostgreSQL e o banco
@@ -211,7 +211,7 @@ Não use `postgres` em `DB_USER`: essa conta serve para administração do servi
 No diretório do projeto, importe o schema conectando como o proprietário do banco. O `-h 127.0.0.1` força a conexão TCP e permite autenticação pela senha criada no passo anterior:
 
 ```bash
-cd "$HOME/hightech_school"
+cd ~/hightech_school
 psql -h 127.0.0.1 -U admin_school -d hightech_school -f database/schema.sql
 ```
 
@@ -246,14 +246,13 @@ As variáveis definidas com `export` ficam disponíveis apenas para esse termina
 Para demonstração ou avaliação, inicie o servidor embutido do PHP:
 
 ```bash
-cd "$HOME/hightech_school"
-php -S 0.0.0.0:8000
+cd ~/hightech_school
 ```
 
 Em seguida, acesse no navegador:
 
 ```text
-http://<IP_DO_SERVIDOR>:8000
+http://<IP_DO_SERVIDOR>
 ```
 
 O servidor embutido é destinado a desenvolvimento e avaliação, não a produção. Não o exponha diretamente à internet. Para uma publicação real, use um servidor web/PHP-FPM configurado com HTTPS, permissões e variáveis de ambiente próprias; simplesmente copiar os arquivos para `/var/www/html` não configura esses componentes.
@@ -683,101 +682,7 @@ flowchart LR
 
 O diagrama apresenta uma visão conceitual das entidades persistidas e das associações existentes. Ele não representa classes PHP: o projeto implementa as operações como funções e páginas.
 
-```mermaid
-classDiagram
-    class Usuario {
-        +int id
-        +string nome
-        +string email
-        +string senha
-        +string perfil
-        +timestamp criado_em
-    }
-    class Aluno {
-        +int id
-        +string nome
-        +string cpf
-        +string email
-        +string turma
-        +date nascimento
-        +bool ativo
-    }
-    class Curso {
-        +int id
-        +string nome
-        +string categoria
-        +string descricao
-        +int carga_horaria
-        +bool ativo
-    }
-    class Matricula {
-        +int id
-        +int id_aluno
-        +int id_curso
-        +date data_matricula
-        +string status
-    }
-    class Aula {
-        +int id
-        +int id_curso
-        +string titulo
-        +string video_url
-        +int ordem
-        +bool obrigatoria
-        +bool ativa
-    }
-    class ProgressoAula {
-        +int id
-        +int id_matricula
-        +int id_aula
-        +timestamp concluida_em
-    }
-    class Prova {
-        +int id
-        +int id_curso
-        +float nota_minima
-        +int max_tentativas
-        +bool ativa
-    }
-    class QuestaoProva {
-        +int id
-        +int id_prova
-        +string enunciado
-        +int ordem
-    }
-    class AlternativaProva {
-        +int id
-        +int id_questao
-        +string texto
-        +bool correta
-    }
-    class TentativaProva {
-        +int id
-        +int id_matricula
-        +int id_prova
-        +float nota
-        +bool aprovada
-    }
-    class Certificado {
-        +int id
-        +int id_matricula
-        +string codigo
-        +timestamp emitido_em
-    }
-    Aluno "1" --> "0..*" Matricula : realiza
-    Curso "1" --> "0..*" Matricula : recebe
-    Curso "1" --> "0..*" Aula : possui
-    Matricula "1" --> "0..*" ProgressoAula : registra
-    Aula "1" --> "0..*" ProgressoAula : concluida
-    Curso "1" --> "0..1" Prova : avalia
-    Prova "1" --> "1..*" QuestaoProva : contem
-    QuestaoProva "1" --> "4" AlternativaProva : oferece
-    Matricula "1" --> "0..*" TentativaProva : realiza
-    Prova "1" --> "0..*" TentativaProva : recebe
-    Matricula "1" --> "0..1" Certificado : conquista
-```
-
-### 5.4 Diagrama de fluxo de inscrição em curso
+### 5.3 Diagrama de fluxo de inscrição em curso
 
 O fluxo abaixo representa o envio público de inscrição tratado por `aplicacao.php`.
 
@@ -806,7 +711,7 @@ flowchart TD
     Matricular -- Não --> ErroMatricula --> Fim
 ```
 
-### 5.5 Diagrama de fluxo de aprendizagem
+### 5.4 Diagrama de fluxo de aprendizagem
 
 ```mermaid
 flowchart TD
