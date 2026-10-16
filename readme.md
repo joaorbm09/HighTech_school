@@ -228,7 +228,7 @@ export DB_HOST='127.0.0.1'
 export DB_PORT='5432'
 export DB_NAME='hightech_school'
 export DB_USER='admin_school'
-export DB_PASS='substitua-pela-senha-forte-do-postgres'
+export DB_PASS='admin123'
 ```
 
 As variáveis definidas com `export` ficam disponíveis apenas para esse terminal e processos iniciados por ele. Não compartilhe o terminal nem salve as senhas em arquivos públicos. Este roteiro cria a conta administrativa pelo cadastro e promoção descritos no passo 9; por isso, não defina `APP_ADMIN_EMAIL` nem `APP_ADMIN_PASSWORD` aqui. Se optar por defini-las, a aplicação poderá criar outra conta administrativa automaticamente na primeira conexão. Em Apache/PHP-FPM, configure as variáveis de banco no ambiente do serviço; exportá-las no SSH não as disponibiliza automaticamente para esses serviços.
