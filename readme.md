@@ -65,7 +65,7 @@ psql -U postgres
 No console `psql`, crie a role e defina uma senha própria:
 
 ```sql
-CREATE USER admin_school WITH PASSWORD admin123;
+CREATE USER admin_school WITH PASSWORD 'admin123';
 CREATE DATABASE hightech_school OWNER admin_school;
 \q
 ```
@@ -82,14 +82,6 @@ psql -U admin_school -d hightech_school -f database/schema.sql
 
 O arquivo `database/schema.sql` cria as 9 tabelas do sistema (usuarios, alunos, cursos, matriculas, aulas, progresso_aulas, provas, questoes_prova, alternativas_prova, tentativas_prova, certificados) e insere dois cursos iniciais de demonstração.
 
-#### Aplicar pelo pgAdmin
-
-1. Abra o **pgAdmin** e conecte-se ao servidor PostgreSQL.
-2. No navegador à esquerda, expanda **Servers → seu servidor → Databases** e clique uma vez no banco `hightech_school`.
-3. Clique com o botão direito nesse banco e escolha **Query Tool**.
-4. No Query Tool, use **Open File** e selecione o arquivo `database/schema.sql` dentro da pasta do projeto.
-5. Pressione **F5** (ou clique no botão **Execute**).
-6. O painel de mensagens deve indicar que os comandos `CREATE TABLE` foram executados.
 
 ### Passo 4: Configurar a conexão PHP
 
@@ -273,16 +265,42 @@ UPDATE usuarios SET perfil = 'admin' WHERE email = 'seu-email@exemplo.com';
 
 4. Entre novamente. O menu administrativo permite gerenciar: **Usuários**, **Alunos**, **Cursos**, **Matrículas**, **Aulas** e **Provas**.
 
-### Pastas principais
+### Estrutura do projeto
 
-| Pasta | Conteúdo |
-| --- | --- |
-| `app/` | Telas de gestão administrativa e de aprendizagem do aluno. |
-| `assets/` | Folha de estilos CSS compartilhada. |
-| `database/` | Conexão com o banco (`connect.php`) e esquema SQL (`schema.sql`). |
-| `docs/` | Documentação de tecnologias e roteiro de apresentação. |
-| `includes/` | Autenticação (`auth.php`), funções (`functions.php`), cabeçalho e rodapé. |
-| `login/` | Cadastro, login e logout. |
+```text
+hightech_school/
+├── aplicacao.php
+├── index.php
+├── readme.md
+├── app/
+│   ├── alunos.php
+│   ├── aulas.php
+│   ├── certificado.php
+│   ├── cursos.php
+│   ├── gerenciar_aulas.php
+│   ├── gerenciar_provas.php
+│   ├── matriculas.php
+│   ├── meu_painel.php
+│   ├── prova.php
+│   └── usuarios.php
+├── assets/
+│   └── style.css
+├── database/
+│   ├── connect.php
+│   └── schema.sql
+├── docs/
+│   ├── html-tags.md
+│   └── roteiro_apresentacao.md
+├── includes/
+│   ├── auth.php
+│   ├── footer.php
+│   ├── functions.php
+│   └── header.php
+└── login/
+    ├── cadastrar.php
+    ├── login.php
+    └── logout.php
+```
 
 ---
 
