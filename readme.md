@@ -1,12 +1,12 @@
-# HighTech — Sistema de serviços e educação em tecnologia
+# HighTech School — Sistema de gestão escolar
 
-A **HighTech** é uma aplicação web acadêmica desenvolvida em PHP e PostgreSQL. O sistema combina um portal de serviços para empresas com a HighTech School, uma área de formação em tecnologia, e recursos para aproximar estudantes de oportunidades profissionais.
+A **HighTech School** é uma aplicação web acadêmica desenvolvida em PHP e PostgreSQL, focada na gestão educacional. Visitantes podem consultar cursos e solicitar inscrição; alunos podem acompanhar matrículas, acessar aulas, registrar progresso, fazer provas e obter certificados verificáveis; administradores autenticados podem gerenciar usuários, alunos, cursos, matrículas, aulas e provas.
 
-Por meio da aplicação, visitantes podem conhecer os serviços, consultar cursos e vagas, enviar solicitações corporativas e visualizar perfis profissionais públicos. Alunos podem criar uma conta, acompanhar matrículas, acessar as aulas dos cursos em que possuem matrícula ativa, registrar o progresso, fazer provas e receber certificados verificáveis após a aprovação. Administradores autenticados podem gerenciar alunos, cursos, matrículas, aulas e provas.
+Este README preserva a especificação extensa do projeto HighTech original. As referências a serviços empresariais, vagas e talentos que permanecem nas seções de requisitos e diagramas descrevem esse escopo anterior e **não devem ser interpretadas como funcionalidades implementadas nesta versão escolar**.
 
 Para entender as tags HTML usadas nas telas, consulte a [documentação de tags HTML](docs/html-tags.md).
 
-> Este documento descreve o comportamento e a estrutura presentes no projeto. Recursos mencionados como possibilidades futuras não devem ser considerados implementados.
+> Para conferir o comportamento atual, considere o código e `database/schema.sql` como referência. Requisitos marcados como parte do escopo anterior não estão implementados nesta versão.
 
 ---
 
@@ -62,10 +62,11 @@ Crie um usuário PostgreSQL dedicado à aplicação e um banco de dados de propr
 psql -U postgres
 ```
 
-No console `psql`, crie a role e defina uma senha própria:
+No console `psql`, crie a role e defina uma senha própria. O comando `\password` solicita a senha interativamente, sem incluí-la no comando:
 
 ```sql
-CREATE USER admin_school WITH PASSWORD admin123;
+CREATE ROLE admin_school LOGIN;
+\password admin_school
 CREATE DATABASE hightech_school OWNER admin_school;
 \q
 ```
@@ -171,19 +172,37 @@ Na lista apresentada, verifique a presença de `PDO` e `pdo_pgsql`.
 
 ### Passo 5: Iniciar a aplicação
 
-Na raiz do projeto, inicie o servidor embutido do PHP:
+Na raiz do projeto, inicie o servidor embutido do PHP para testar no mesmo computador:
 
 ```bash
-php -S localhost:8000
+php -S 127.0.0.1:8000
 ```
 
-Abra o endereço abaixo no navegador:
+No navegador desse computador, abra:
 
 ```text
-http://localhost:8000
+http://127.0.0.1:8000
 ```
 
-O `index.php` redireciona para `portal_empresa.php`.
+`localhost` também pode ser usado no lugar de `127.0.0.1`. Ambos significam “este próprio computador”. O `index.php` redireciona para `aplicacao.php`, a página pública de cursos.
+
+#### Acessar de outro dispositivo na mesma rede
+
+Se quiser abrir o site em um celular ou em outro computador conectado à mesma rede:
+
+1. No computador que executa o PHP, inicie o servidor aceitando conexões de rede:
+
+   ```bash
+   php -S 0.0.0.0:8000
+   ```
+
+   `0.0.0.0` é o endereço de escuta do servidor; não o digite no navegador.
+
+2. Descubra o IP local do computador que está executando o PHP. No Windows, use `ipconfig` e procure o **Endereço IPv4** da conexão Wi-Fi ou Ethernet ativa. No Linux, use `hostname -I`.
+3. No outro dispositivo, abra `http://IP_LOCAL_DO_COMPUTADOR:8000`, substituindo pelo endereço encontrado. Por exemplo, `http://192.168.1.25:8000`.
+4. Se não abrir, confira se os dispositivos estão na mesma rede e se o firewall permite conexões de entrada na porta `8000`.
+
+O IP usado no navegador é o do computador que hospeda o **site**, não o IP do visitante. Já `DB_HOST` é o endereço do servidor PostgreSQL visto pelo PHP. Quando o PHP e o PostgreSQL estão no mesmo computador, `127.0.0.1` costuma ser correto para `DB_HOST`. O servidor embutido é para desenvolvimento e avaliação; não o exponha diretamente à internet.
 
 ### Passo 6: Criar uma conta e acessar
 
@@ -380,6 +399,8 @@ O repositório não contém um link de prototipagem ou especificação visual ex
 
 #### 2.2 Funções do sistema
 
+Os itens relacionados a serviços empresariais, vagas e talentos abaixo pertencem à especificação do projeto original e não fazem parte da versão escolar atual.
+
 O sistema oferece as seguintes funções principais:
 
 1. Apresentar os serviços corporativos e receber solicitações de diagnóstico tecnológico.
@@ -408,7 +429,7 @@ O sistema oferece as seguintes funções principais:
 | **Aluno** | Pode autenticar, acessar o próprio painel, consultar suas matrículas, estudar aulas de cursos em que está matriculado, registrar o progresso, fazer provas liberadas, consultar certificados e salvar seu perfil profissional. |
 | **Administrador** | Pode acessar as telas administrativas de alunos, cursos, matrículas, aulas e provas, além das funções disponíveis ao usuário autenticado. |
 
-O cadastro público cria contas com o perfil `aluno`. O perfil `admin` precisa ser atribuído por um processo administrativo; o esquema SQL não cria uma conta administrativa.
+O cadastro público cria contas com o perfil `aluno`. O schema inclui uma conta administrativa de demonstração (`admin@hightech.com` / `admin123`); em um ambiente compartilhado, remova-a somente depois de criar e confirmar o acesso de outra conta administradora. O perfil `admin` também pode ser atribuído por um processo administrativo, como descrito no guia de instalação.
 
 ---
 
@@ -427,6 +448,8 @@ O cadastro público cria contas com o perfil `aluno`. O perfil `admin` precisa s
 | **RF05** | Encerramento da sessão | O sistema deve permitir que o usuário encerre a sessão e seja redirecionado ao portal. | Média |
 
 #### Módulo institucional e de solicitações empresariais
+
+Os requisitos RF06–RF08 abaixo são mantidos como referência ao escopo original; as páginas e tabelas desse módulo não fazem parte desta versão escolar.
 
 | ID | Título | Descrição | Prioridade |
 | --- | --- | --- | --- |
@@ -448,6 +471,8 @@ O cadastro público cria contas com o perfil `aluno`. O perfil `admin` precisa s
 | **RF16** | Matrícula rápida | O painel do aluno deve permitir o envio de solicitação de matrícula em outro curso. | Média |
 
 #### Módulo de talentos e oportunidades
+
+Os requisitos RF17–RF20 abaixo são mantidos como referência ao escopo original; as páginas e tabelas desse módulo não fazem parte desta versão escolar.
 
 | ID | Título | Descrição | Prioridade |
 | --- | --- | --- | --- |
@@ -520,6 +545,8 @@ O cadastro público cria contas com o perfil `aluno`. O perfil `admin` precisa s
 
 #### Módulo corporativo e de oportunidades
 
+As regras RN11–RN13 abaixo pertencem ao escopo original e não descrevem funcionalidades disponíveis nesta versão escolar.
+
 | ID | Título | Regra / condição |
 | --- | --- | --- |
 | **RN11** | Solicitação empresarial | Empresa, responsável, e-mail e serviço de interesse são obrigatórios no formulário do portal; a nova solicitação recebe status `Pendente`. |
@@ -541,7 +568,7 @@ O cadastro público cria contas com o perfil `aluno`. O perfil `admin` precisa s
 
 ## 4. Estruturação do banco de dados
 
-O banco PostgreSQL utiliza quatorze tabelas. Os campos e as regras abaixo correspondem ao arquivo `database/schema.sql`.
+O arquivo `database/schema.sql` desta versão cria 11 tabelas: `usuarios`, `alunos`, `cursos`, `matriculas`, `aulas`, `progresso_aulas`, `provas`, `questoes_prova`, `alternativas_prova`, `tentativas_prova` e `certificados`. As descrições de `solicitacoes_empresas`, `vagas` e `perfil_talento` abaixo pertencem ao escopo anterior do projeto e não correspondem a tabelas criadas pelo schema atual.
 
 #### Entidade: `usuarios` (contas de acesso)
 
@@ -564,7 +591,7 @@ Armazena os dados acadêmicos e de contato do aluno. O cadastro acadêmico é se
 | --- | --- | --- | --- |
 | `id` | SERIAL | PRIMARY KEY | Identificador do aluno. |
 | `nome` | VARCHAR(100) | NOT NULL | Nome completo. |
-| `cpf` | VARCHAR(14) | Opcional; índice único parcial | Documento opcional; valores não nulos não podem se repetir. |
+| `cpf` | VARCHAR(14) | Opcional, UNIQUE | Documento opcional; valores informados não podem se repetir. |
 | `email` | VARCHAR(100) | NOT NULL | E-mail de contato e associação com a conta. |
 | `turma` | VARCHAR(20) | Opcional | Turma ou grupo acadêmico. |
 | `nascimento` | DATE | Opcional | Data de nascimento. |
@@ -683,7 +710,7 @@ Armazena dados profissionais opcionais associados a um aluno.
 
 ### 5.1 Diagrama de entidade-relacionamento (DER)
 
-O diagrama representa as tabelas e os relacionamentos definidos no esquema PostgreSQL.
+O diagrama inclui a visão do projeto original. `SOLICITACOES_EMPRESAS`, `VAGAS` e `PERFIL_TALENTO` são entidades legadas e não existem no `database/schema.sql` atual; esse arquivo cria somente as 11 tabelas listadas na seção anterior.
 
 ```mermaid
 erDiagram
@@ -814,7 +841,7 @@ erDiagram
 
 ### 5.2 Diagrama de casos de uso
 
-O diagrama resume as ações disponíveis para visitantes, alunos e administradores. A autorização das telas administrativas é verificada no servidor.
+O diagrama resume a proposta original, incluindo ações empresariais e de talentos que não estão disponíveis nesta versão escolar. A autorização das telas administrativas implementadas é verificada no servidor.
 
 ```mermaid
 flowchart LR
@@ -867,7 +894,7 @@ flowchart LR
 
 ### 5.3 Diagrama de classes conceitual
 
-O diagrama apresenta uma visão conceitual das entidades persistidas e das associações existentes. Ele não representa classes PHP: o projeto implementa as operações como funções e páginas.
+O diagrama preserva a visão conceitual do projeto original; `SolicitacaoEmpresa`, `Vaga` e `PerfilTalento` não correspondem a tabelas do schema atual. Ele não representa classes PHP: o projeto implementa as operações como funções e páginas.
 
 ```mermaid
 classDiagram
