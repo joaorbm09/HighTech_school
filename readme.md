@@ -309,7 +309,7 @@ O propósito do sistema é centralizar operações acadêmicas, oferecendo um fl
 
 #### 2.1 Prototipagem
 
-O repositório não contém um link de prototipagem ou especificação visual externa. A interface atual é implementada nas páginas PHP e estilizada pelo arquivo `assets/style.css`.
+[Prototipagem de baixo nivel da hightech_school](https://excalidraw.com/#json=mzN_1QuTOLnp5WtU0sUAt,NIUj1dWqbeygbeLV-2nXLw)
 
 #### 2.2 Funções do sistema
 
