@@ -184,6 +184,66 @@ O sistema é inteiramente construído em PHP, que gera o HTML no servidor. O PHP
 | `number_format()` | Notas | Formata notas da prova com casas decimais. |
 | `try / catch (PDOException)` | Operações de banco | Captura erros de banco de dados sem interromper abruptamente a página. |
 
+### Funções próprias do sistema
+
+As funções abaixo são definidas em [`includes/functions.php`](../includes/functions.php) e [`includes/auth.php`](../includes/auth.php). As funções de banco de dados recebem a conexão PDO como primeiro parâmetro. Os retornos indicados descrevem os resultados mais importantes usados pelas páginas.
+
+#### Autenticação e usuários
+
+| Função | O que faz |
+| --- | --- |
+| `usuarioLogado()` (`auth.php`) | Verifica se existe um ID de usuário na sessão. Retorna `true` ou `false`. |
+| `obterUsuarioLogado()` (`auth.php`) | Retorna os dados básicos do usuário da sessão (`id`, `nome`, `email` e `perfil`) ou `null` se não houver usuário autenticado. |
+| `exigirLogin()` (`auth.php`) | Protege uma página para que só usuários autenticados possam acessá-la; redireciona ao login e encerra a execução se ninguém estiver logado. |
+| `exigirAdmin()` (`auth.php`) | Exige login e verifica se o perfil é `admin`; caso contrário, redireciona para a aplicação com uma mensagem de acesso negado. |
+| `cadastrarUsuario()` | Normaliza o e-mail, gera um hash bcrypt para a senha e insere a conta com o perfil informado (por padrão, `aluno`). Retorna `true` ou `false`. |
+| `autenticarUsuario()` | Procura a conta pelo e-mail e compara a senha informada com o hash armazenado. Retorna os dados do usuário se as credenciais forem válidas ou `false`. |
+| `buscarUsuarioPorEmail()` | Procura e retorna uma conta pelo e-mail, sem diferenciar maiúsculas de minúsculas; retorna `false` se não encontrar ou ocorrer uma falha. |
+| `buscarAlunoPorEmail()` | Procura o cadastro acadêmico de aluno associado ao e-mail, sem diferenciar maiúsculas de minúsculas. |
+
+#### Cadastro e validação de alunos
+
+| Função | O que faz |
+| --- | --- |
+| `normalizarCpf()` | Remove caracteres que não sejam dígitos e limita o CPF a 11 números. Se o valor estiver vazio, retorna uma string vazia. |
+| `validarCpf()` | Verifica se o CPF normalizado tem 11 dígitos e não é formado pelo mesmo dígito repetido. Não calcula os dígitos verificadores do CPF. Retorna `true` ou `false`. |
+| `cadastrarAluno()` | Insere os dados acadêmicos do aluno; normaliza o CPF e grava campos opcionais vazios como nulos. Retorna `true` ou `false`. |
+| `validarDataNascimento()` | Valida uma data no formato `AAAA-MM-DD` e aceita idades de 14 a 100 anos. Retorna a data normalizada, `null` se estiver vazia ou `false` se for inválida; em caso de erro, preenche a mensagem recebida por referência. |
+
+#### Matrículas, cursos e aulas
+
+| Função | O que faz |
+| --- | --- |
+| `listarCursosDisponiveisParaMatricula()` | Lista cursos ativos nos quais o aluno ainda não tem matrícula ativa. Retorna uma lista de cursos ou `false` em caso de falha. |
+| `matricularAlunoEmCursoAtivo()` | Confere se o curso está ativo e, em uma transação, cria uma matrícula ou reativa uma existente. Retorna `created`, `already_enrolled`, `course_unavailable` ou `error`. |
+| `obterMatriculaAtivaAlunoCurso()` | Busca os dados de uma matrícula ativa do aluno no curso indicado. Retorna o registro encontrado, `false` se não houver resultado ou `null` em caso de falha. |
+| `listarCursosDoAluno()` | Monta os dados dos cursos matriculados pelo aluno, incluindo situação da matrícula, progresso nas aulas, prova, tentativas e certificado. Retorna uma lista; em caso de falha, retorna uma lista vazia. |
+| `listarAulasDaMatricula()` | Lista as aulas ativas do curso da matrícula e informa se cada uma foi concluída. Retorna uma lista ou `false` em caso de falha. |
+| `formatarConteudoAula()` | Escapa o conteúdo para exibição segura, preserva quebras de linha e transforma URLs HTTP/HTTPS válidas em links que abrem em outra aba. |
+| `concluirAulaDaMatricula()` | Registra a conclusão de uma aula ativa que pertence ao curso da matrícula ativa. Retorna `true` se a conclusão existir, inclusive se já estava registrada; retorna `false` ou `null` se não puder confirmá-la ou ocorrer uma falha. |
+| `contarAulasObrigatoriasPendentes()` | Conta as aulas obrigatórias e ativas ainda não concluídas na matrícula. Retorna a quantidade ou `null` em caso de falha. |
+
+#### Provas e tentativas
+
+| Função | O que faz |
+| --- | --- |
+| `obterProvaDoCurso()` | Busca as configurações da prova de um curso; o parâmetro `somente_ativa` restringe a busca a provas publicadas. Retorna os dados, `false` se não encontrar ou `null` em caso de falha. |
+| `salvarProvaDoCurso()` | Cria a configuração da prova do curso ou atualiza a nota mínima e o limite de tentativas existentes. Retorna `true` ou `false`. |
+| `definirProvaAtiva()` | Publica ou despublica a prova. Antes de publicar, exige ao menos uma questão e exatamente quatro alternativas, com uma correta por questão. Retorna `published`, `unpublished`, `invalid_questions`, `unchanged` ou `error`. |
+| `listarQuestoesProvaAdmin()` | Lista questões e alternativas para administração, incluindo qual alternativa é correta. |
+| `salvarQuestaoProva()` | Cria ou atualiza uma questão e suas alternativas em uma transação. Retorna `created`, `updated`, `not_found`, `order_conflict` ou `error`. |
+| `excluirQuestaoProva()` | Exclui uma questão somente se ela pertencer à prova indicada. Retorna `true` se uma questão foi excluída ou `false` caso contrário. |
+| `listarQuestoesProvaAluno()` | Lista questões e alternativas para o aluno sem incluir a informação de qual alternativa é correta. |
+| `enviarTentativaProva()` | Valida as respostas e as regras de acesso à prova, calcula a nota, registra a tentativa e emite certificado se o aluno for aprovado. Retorna um resultado com `status` (como `passed`, `failed`, `invalid_answers` ou `attempts_exhausted`), nota e tentativas restantes; uma aprovação também inclui o código do certificado. |
+| `listarTentativasProvaAluno()` | Lista o histórico de notas, aprovação e datas das tentativas do aluno para uma prova, da mais recente para a mais antiga. |
+
+#### Certificados
+
+| Função | O que faz |
+| --- | --- |
+| `obterCertificadoDaMatricula()` | Busca os dados do certificado da matrícula, incluindo código, data de emissão, aluno, curso e carga horária. Retorna o registro, `false` se não houver certificado ou `null` em caso de falha. |
+| `validarCertificadoPorCodigo()` | Confere um código de certificado e retorna os dados públicos do certificado correspondente. Retorna `false` se não encontrar ou `null` em caso de falha. |
+
 ### Padrões de arquitetura
 
 | Padrão | Descrição | Por que foi adotado |
