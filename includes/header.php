@@ -6,6 +6,7 @@ $baseUrl = in_array(basename(dirname($_SERVER['SCRIPT_NAME'] ?? '')), ['app', 'l
     ? '../'
     : '';
 $usuario = obterUsuarioLogado();
+// O perfil define quais links de navegação serão exibidos mais abaixo.
 ?>
 <!-- Cabeçalho e navegação compartilhados por todas as telas. -->
 <link rel="stylesheet" href="<?php echo $baseUrl; ?>assets/style.css">

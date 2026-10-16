@@ -21,6 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao']) && $_POST['ac
         $id_excluir = filter_var($_POST['id'] ?? '', FILTER_VALIDATE_INT);
         if ($id_excluir && $conexao) {
             try {
+                // A consulta preparada envia o ID como parâmetro, sem juntar texto recebido à instrução SQL.
                 $stmt = $conexao->prepare('DELETE FROM alunos WHERE id = :id');
                 if ($stmt->execute(['id' => $id_excluir]) && $stmt->rowCount() > 0) {
                     $mensagem = '<div class="alert alert-success">Aluno excluído com sucesso!</div>';
@@ -61,6 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['acao'] ?? '') !== 'excluir
         $ativo = $_POST['ativo'] ?? 'true';
         $nasc_raw = trim($_POST['nasc'] ?? '');
         $nasc_erro = '';
+        // A função verifica a data e a idade permitida antes de salvar qualquer informação.
         $nasc = validarDataNascimento($nasc_raw, $nasc_erro);
         if ($nasc === false) {
             $mensagem = '<div class="alert alert-warning">' . htmlspecialchars($nasc_erro) . '</div>';
@@ -71,6 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['acao'] ?? '') !== 'excluir
         } else if (!empty($nome) && !empty($email)) {
             try {
                 if ($id) {
+                    // Se o formulário trouxe um ID, atualizamos o aluno já existente.
                     $stmt = $conexao->prepare(
                         'UPDATE alunos
                          SET nome = :nome, cpf = :cpf, email = :email, turma = :turma,
@@ -93,6 +96,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['acao'] ?? '') !== 'excluir
                         $mensagem = '<div class="alert alert-danger">Erro ao atualizar aluno.</div>';
                     }
                 } else {
+                    // Sem ID, os dados representam um novo cadastro acadêmico.
                     $stmt = $conexao->prepare(
                         'INSERT INTO alunos (nome, cpf, email, turma, nascimento, ativo)
                          VALUES (:nome, :cpf, :email, :turma, :nascimento, :ativo)'
@@ -140,6 +144,7 @@ if ($conexao) {
 }
 $data_max_nasc = date('Y-m-d', strtotime('-14 years'));
 $data_min_nasc = date('Y-m-d', strtotime('-100 years'));
+// Esses limites ajudam o navegador a aceitar somente datas entre 14 e 100 anos atrás.
 ?>
 
 <!DOCTYPE html>

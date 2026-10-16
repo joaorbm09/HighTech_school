@@ -5,16 +5,19 @@ require_once __DIR__ . '/../includes/functions.php';
 
 $erro = '';
 $certificado = false;
+// O código pode vir pela URL; normalizamos letras e espaços antes de validar o formato.
 $codigo = isset($_GET['codigo']) && is_string($_GET['codigo'])
     ? strtolower(trim($_GET['codigo']))
     : '';
 if (!preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/', $codigo)) {
+    // O código esperado é um UUID, identificador usado para localizar um certificado específico.
     http_response_code(400);
     $erro = 'O código informado não possui um formato válido.';
 } elseif (!$conexao) {
     http_response_code(503);
     $erro = 'Não foi possível validar o certificado no momento. Tente novamente mais tarde.';
 } else {
+    // Além do formato válido, o certificado precisa existir e estar registrado no banco.
     $certificado = validarCertificadoPorCodigo($conexao, $codigo);
     if ($certificado === null) {
         http_response_code(500);

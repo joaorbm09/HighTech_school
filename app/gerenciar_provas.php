@@ -54,6 +54,7 @@ if (!$conexao) {
             $erro = 'O curso selecionado não existe.';
         } else {
             // Cada formulário envia uma ação: configurar, publicar ou editar questão.
+            // O bloco abaixo encaminha cada ação para a validação e a função correspondente.
             $acao = $_POST['acao'] ?? '';
             $prova = obterProvaDoCurso($conexao, $id_curso);
 
@@ -62,6 +63,7 @@ if (!$conexao) {
                 $erro = 'Não foi possível carregar a avaliação deste curso.';
             } elseif ($acao === 'salvar_configuracao') {
                 // Valida nota mínima e número máximo de tentativas.
+                // A publicação também depende de haver questões completas e alternativas válidas.
                 $nota_raw = $_POST['nota_minima'] ?? '';
                 $nota = filter_var(
                     is_string($nota_raw) || is_int($nota_raw) || is_float($nota_raw) ? $nota_raw : '',

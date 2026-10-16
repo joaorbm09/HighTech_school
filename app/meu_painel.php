@@ -43,6 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Carrega os cursos já matriculados e os cursos que ainda aceitam matrícula.
+// Os dados também incluem progresso, tentativas e certificados para decidir quais ações mostrar.
 $cursosAluno = $aluno ? listarCursosDoAluno($conexao, $aluno['id']) : [];
 $cursosDisponiveis = $aluno
     ? listarCursosDisponiveisParaMatricula($conexao, $aluno['id'])

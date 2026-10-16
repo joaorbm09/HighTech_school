@@ -66,7 +66,7 @@ if ($matricula && $_SERVER['REQUEST_METHOD'] === 'POST') {
             http_response_code(400);
             $erro = 'A aula informada é inválida.';
         } else {
-            // Aqui o sistema grava a conclusão da aula na tabela de progresso, associada à matrícula do aluno.
+            // A função confirma novamente que a aula pertence ao curso matriculado antes de gravar o progresso.
             $resultado = concluirAulaDaMatricula($conexao, $matricula['matricula_id'], $id_aula);
             if ($resultado === true) {
                 $mensagem = 'Aula marcada como concluída.';
@@ -80,8 +80,7 @@ if ($matricula && $_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Depois de validar a matrícula, o script busca as aulas disponíveis para aquele curso.
-// Isso é o que permite a página mostrar o conteúdo do curso ao aluno.
+// Depois de validar a matrícula, o script busca as aulas publicadas e o estado de conclusão de cada uma.
 if ($matricula) {
     if (empty($_SESSION['csrf_aulas'])) {
         $_SESSION['csrf_aulas'] = bin2hex(random_bytes(32));
