@@ -326,7 +326,7 @@ O propósito do sistema é centralizar operações acadêmicas, oferecendo um fl
 
 #### 2.1 Prototipagem
 
-[Prototipagem de baixo nivel da hightech_school](https://excalidraw.com/#json=mzN_1QuTOLnp5WtU0sUAt,NIUj1dWqbeygbeLV-2nXLw)
+[Prototipagem de baixo nivel da hightech_school](https://excalidraw.com/#json=gVz328tCF9BB35wzVHLIs,VWuX4ZX9WB5r-mbpKtikvA)
 
 #### 2.2 Funções do sistema
 
