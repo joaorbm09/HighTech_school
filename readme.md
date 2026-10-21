@@ -106,7 +106,7 @@ Na lista apresentada, verifique a presença de `PDO`, `pdo_pgsql` e `mbstring`.
 Na raiz do projeto, inicie o servidor embutido do PHP para testar no mesmo computador:
 
 ```bash
-php -S 127.0.0.1:8000
+php -S localhost:8000
 ```
 
 No navegador desse computador, abra:
@@ -224,7 +224,7 @@ Se o comando retornar `1`, a conexão está correta. Se houver erro de autentica
 Defina as variáveis antes de iniciar o PHP, substituindo os valores entre aspas pela configuração desta máquina. Use a mesma senha criada no passo 4. O exemplo vale para o servidor embutido iniciado no mesmo terminal:
 
 ```bash
-export DB_HOST='127.0.0.1'
+export DB_HOST='localhost'
 export DB_PORT='5432'
 export DB_NAME='hightech_school'
 export DB_USER='admin_school'
@@ -254,7 +254,7 @@ O servidor embutido é destinado a desenvolvimento e avaliação, não a produç
 O usuário `admin_school` acessa o banco; ele não é uma conta de login do site. Abra `http://<IP_DO_SERVIDOR>:8000/login/cadastrar.php` e cadastre uma conta própria. Depois, promova essa conta a administradora no banco:
 
 ```bash
-psql -h 127.0.0.1 -U admin_school -d hightech_school
+psql -h localhost -U admin_school -d hightech_school
 ```
 
 No console `psql`, substitua o e-mail pelo usado no cadastro:
