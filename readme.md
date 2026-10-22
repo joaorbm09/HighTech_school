@@ -4,7 +4,7 @@ A **HighTech** é uma aplicação web acadêmica desenvolvida em PHP e PostgreSQ
 
 Por meio da aplicação, visitantes podem conhecer os serviços, consultar cursos e vagas, enviar solicitações corporativas e visualizar perfis profissionais públicos. Alunos podem criar uma conta, acompanhar matrículas, acessar as aulas dos cursos em que possuem matrícula ativa, registrar o progresso, fazer provas e receber certificados verificáveis após a aprovação. Administradores autenticados podem gerenciar alunos, cursos, matrículas, aulas e provas.
 
-Para o roteiro de apresentação do projeto, consulte o [roteiro de apresentação](docs/roteiro_apresentacao.md).
+Para preparar a apresentação do projeto, consulte o [roteiro de apresentação](docs/roteiro_apresentacao.md) e o [questionário com respostas para estudo](docs/quest.md).
 
 > Para conferir o comportamento atual, considere o código e `database/schema.sql` como referência. Requisitos marcados como parte do escopo anterior não estão implementados nesta versão.
 
@@ -471,7 +471,7 @@ O cadastro público cria contas com o perfil `aluno`. O perfil `admin` precisa s
 
 ## 4. Estruturação do banco de dados
 
-O banco PostgreSQL utiliza quatorze tabelas. Os campos e as regras abaixo correspondem ao arquivo `database/schema.sql`.
+O banco PostgreSQL utiliza onze tabelas. Os campos e as regras abaixo correspondem ao arquivo `database/schema.sql`.
 
 #### Entidade: `usuarios` (contas de acesso)
 
@@ -548,10 +548,14 @@ O banco PostgreSQL utiliza quatorze tabelas. Os campos e as regras abaixo corres
 
 ### 5.1 Diagrama de entidade-relacionamento (DER)
 
-O diagrama representa as tabelas e os relacionamentos definidos no esquema PostgreSQL.
+O diagrama representa as 11 tabelas do banco em uma única visão, com leitura da esquerda para a direita. As relações mostram tanto a estrutura dos cursos quanto os registros individuais de aprendizagem.
 
 ```mermaid
+%%{init: {"er": {"diagramPadding": 30, "nodeSpacing": 110, "rankSpacing": 170}}}%%
 erDiagram
+    direction LR
+
+    %% Cadastro e vínculo do aluno com o curso
     USUARIOS {
         int id PK
         varchar nome
@@ -585,10 +589,14 @@ erDiagram
         date data_matricula
         varchar status
     }
+
+    %% Aulas e acompanhamento
     AULAS {
         int id PK
         int id_curso FK
         varchar titulo
+        text descricao
+        text conteudo
         varchar video_url
         int ordem
         boolean obrigatoria
@@ -600,12 +608,15 @@ erDiagram
         int id_aula FK
         timestamp concluida_em
     }
+
+    %% Estrutura da avaliação
     PROVAS {
         int id PK
         int id_curso FK, UK
         decimal nota_minima
         int max_tentativas
         boolean ativa
+        timestamp criado_em
     }
     QUESTOES_PROVA {
         int id PK
@@ -619,6 +630,8 @@ erDiagram
         text texto
         boolean correta
     }
+
+    %% Resultados individuais
     TENTATIVAS_PROVA {
         int id PK
         int id_matricula FK
@@ -626,6 +639,7 @@ erDiagram
         decimal nota
         boolean aprovada
         jsonb respostas
+        timestamp realizada_em
     }
     CERTIFICADOS {
         int id PK
@@ -634,21 +648,47 @@ erDiagram
         uuid codigo UK
         timestamp emitido_em
     }
-    ALUNOS ||--o{ MATRICULAS : realiza
+
+    %% Matrícula: encontro entre aluno e curso
+    ALUNOS ||--o{ MATRICULAS : possui
     CURSOS ||--o{ MATRICULAS : recebe
+
+    %% Aulas e progresso
     CURSOS ||--o{ AULAS : possui
+    AULAS ||--o{ PROGRESSO_AULAS : tem_conclusoes
     MATRICULAS ||--o{ PROGRESSO_AULAS : registra
-    AULAS ||--o{ PROGRESSO_AULAS : acompanha
-    CURSOS ||--o| PROVAS : avalia
-    PROVAS ||--o{ QUESTOES_PROVA : contem
-    QUESTOES_PROVA ||--|{ ALTERNATIVAS_PROVA : oferece
-    MATRICULAS ||--o{ TENTATIVAS_PROVA : realiza
+
+    %% Avaliação e resultados por matrícula
+    CURSOS ||--o| PROVAS : possui
+    MATRICULAS ||--o{ TENTATIVAS_PROVA : registra
     PROVAS ||--o{ TENTATIVAS_PROVA : recebe
-    MATRICULAS ||--o| CERTIFICADOS : conquista
-    PROVAS ||--o{ CERTIFICADOS : aprova
+    MATRICULAS ||--o| CERTIFICADOS : recebe
+    PROVAS ||--o{ CERTIFICADOS : fundamenta
+
+    %% Questões e alternativas da avaliação
+    PROVAS ||--o{ QUESTOES_PROVA : contem
+    QUESTOES_PROVA ||--o{ ALTERNATIVAS_PROVA : oferece
 ```
 
-`USUARIOS` e `ALUNOS` são tabelas distintas; as páginas associam os registros pelo e-mail.
+**Como ler as ligações:** `||` significa exatamente um, `o|` significa zero ou um e `o{` significa zero ou muitos. Por exemplo, um aluno pode ter várias matrículas, mas cada matrícula pertence a exatamente um aluno. `PK`, `FK` e `UK` indicam, respectivamente, chave primária, chave estrangeira e chave única.
+
+#### Por que a prova está ligada ao curso?
+
+A dúvida faz sentido ao olhar para a experiência de uso: quem entra no sistema, responde às questões e recebe uma nota é o aluno. No banco, essa experiência é representada por duas entidades diferentes: **a avaliação preparada para o curso** e **cada tentativa realizada por um aluno**.
+
+| Entidade | O que representa | Vínculo principal |
+| --- | --- | --- |
+| `provas` | Configuração da avaliação: nota mínima, limite de tentativas e publicação. As questões estão em `questoes_prova`. | `id_curso` identifica o curso avaliado. |
+| `matriculas` | A participação de um aluno em um curso específico. | `id_aluno` e `id_curso` identificam essa participação. |
+| `tentativas_prova` | Uma realização da avaliação, com respostas, nota, aprovação e data. | `id_matricula` identifica a participação do aluno; `id_prova` identifica a avaliação respondida. |
+
+Por exemplo, Ana e Bruno estão matriculados em **Banco de Dados com PostgreSQL**. O administrador prepara uma prova para esse curso, com as mesmas questões e critérios para ambos. Ana faz a prova e tira 80; Bruno faz a mesma prova e tira 60. Existe **um registro em `provas`**, mas **duas tentativas**, cada uma ligada à matrícula correspondente. Se Bruno puder tentar novamente, será criado outro registro em `tentativas_prova`, preservando sua primeira nota.
+
+O caminho até o resultado individual é, portanto, `alunos → matriculas → tentativas_prova`. Cada tentativa também aponta para `provas`, que informa qual avaliação foi respondida. Usar a matrícula permite identificar simultaneamente **quem é o aluno e em qual curso ele está inscrito**, além de verificar a situação dessa inscrição. A conta em `usuarios` serve para autenticação; atualmente, a aplicação encontra o registro em `alunos` pelo e-mail, sem uma chave estrangeira entre essas duas tabelas.
+
+**Nesse funcionamento, a ligação direta entre `cursos` e `provas` faz sentido:** ela define a avaliação do curso. Substituí-la por uma ligação direta com o usuário confundiria a configuração compartilhada com a realização individual, que já é registrada em `tentativas_prova`. A restrição `UNIQUE` em `provas.id_curso` permite no máximo uma prova por curso; um curso ainda pode não ter prova cadastrada.
+
+Uma mudança nesse relacionamento seria necessária se a regra do projeto fosse outra: por exemplo, avaliações independentes dos cursos ou provas personalizadas para cada aluno. Para o fluxo implementado hoje, a separação entre prova e tentativa atende ao uso individual. Ao enviar uma tentativa, a aplicação também verifica se a prova pertence ao mesmo curso da matrícula; as chaves estrangeiras, sozinhas, não garantem essa correspondência.
 
 ### 5.2 Diagrama de casos de uso
 
