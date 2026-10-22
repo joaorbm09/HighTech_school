@@ -2,6 +2,7 @@
 // Este arquivo cria a ponte entre a aplicação PHP e o banco PostgreSQL.
 // Em termos simples: ele diz ao PHP "use este endereço, este usuário, esta senha e este banco".
 // Se tudo estiver certo, a aplicação consegue salvar e consultar dados do sistema.
+// getenv() lê configurações do ambiente; o valor após ?: é usado quando a variável não está definida ou está vazia.
 $host = getenv('DB_HOST') ?: '192.168.10.52';
 $port = getenv('DB_PORT') ?: '5432';
 $dbname = getenv('DB_NAME') ?: 'hightech_school';
@@ -30,7 +31,7 @@ try {
     $conexao = null;
 }
 
-// Cria o administrador padrão somente quando ele ainda não existe.
+// Cria o administrador padrão somente se a conta ainda não existir.
 // Assim, a aplicação não redefine a senha de um administrador a cada página visitada.
 if ($conexao) {
     try {

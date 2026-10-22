@@ -165,6 +165,7 @@ O sistema é inteiramente construído em PHP, que gera o HTML no servidor. O PHP
 | `$_POST` | Formulários | Acessa dados enviados pelo formulário via método POST. |
 | `$_GET` | Parâmetros de URL | Acessa parâmetros da URL, como códigos de certificado e mensagens. |
 | `$_SERVER` | Detecção de método, caminhos | `$_SERVER['REQUEST_METHOD']` verifica se o acesso é GET ou POST. |
+| `getenv()` | `database/connect.php` | Lê uma variável de ambiente para configurar a conexão e a conta administrativa sem depender apenas de valores fixos no código. |
 | `header('Location: ...')` | Redirecionamentos | Redireciona o navegador para outra página após uma ação (login, cadastro, etc.). |
 | `exit` | Após redirecionamentos | Interrompe a execução para garantir que nada mais seja processado após o redirecionamento. |
 | `echo`, `<?= ... ?>` | Todo o sistema | Envia conteúdo (HTML, variáveis) para o navegador. |
@@ -183,6 +184,32 @@ O sistema é inteiramente construído em PHP, que gera o HTML no servidor. O PHP
 | `date()` / `strtotime()` | Datas | Formata e manipula datas para exibição e validação de idade. |
 | `number_format()` | Notas | Formata notas da prova com casas decimais. |
 | `try / catch (PDOException)` | Operações de banco | Captura erros de banco de dados sem interromper abruptamente a página. |
+
+### Configuração com `getenv()`
+
+No arquivo [`database/connect.php`](../database/connect.php), `getenv()` lê uma variável de ambiente definida no sistema ou no processo que iniciou o PHP. Assim, as configurações podem ser alteradas sem editar o código:
+
+```php
+$host = getenv('DB_HOST') ?: '192.168.10.52';
+$user = getenv('DB_USER') ?: 'admin_school';
+$password = getenv('DB_PASS') ?: 'admin123';
+```
+
+O operador `?:` usa o valor à direita quando `getenv()` não encontra a variável ou quando ela contém um valor vazio. Por exemplo, se `DB_HOST` estiver configurada como `localhost`, a aplicação usará `localhost`; se não estiver configurada, usará `192.168.10.52`. O mesmo padrão é usado para a porta, o nome do banco e os dados da conta administrativa.
+
+As variáveis `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` e `DB_PASS` definem os dados da conexão PostgreSQL. `APP_ADMIN_EMAIL` e `APP_ADMIN_PASSWORD` definem o e-mail e a senha usados para criar a conta administrativa padrão quando ela ainda não existe. Esses valores alternativos no código permitem que o projeto funcione sem variáveis de ambiente, desde que correspondam à configuração local do banco.
+
+`getenv()` não carrega automaticamente um arquivo `.env`: as variáveis precisam ser definidas no ambiente antes de iniciar o PHP. Por exemplo, no PowerShell do Windows, defina-as no mesmo terminal em que iniciará o servidor:
+
+```powershell
+$env:DB_HOST = "localhost"
+$env:DB_NAME = "hightech_school"
+$env:DB_USER = "admin_school"
+$env:DB_PASS = "sua_senha_local"
+php -S localhost:8000
+```
+
+No Linux, o equivalente é usar `export DB_HOST='localhost'` (e definir as demais variáveis) antes de executar `php -S localhost:8000`. Use os dados reais da sua instalação do PostgreSQL. Para evitar expor credenciais, não compartilhe senhas nem as publique no repositório.
 
 ### Funções próprias do sistema
 
@@ -263,7 +290,7 @@ O banco de dados é PostgreSQL, escolhido por suportar chaves estrangeiras, rest
 
 | Recurso | Onde é usado | Por que foi usado |
 | --- | --- | --- |
-| `CREATE TABLE` | `schema.sql` | Define a estrutura das 9 tabelas do sistema. |
+| `CREATE TABLE` | `schema.sql` | Define a estrutura das 11 tabelas do sistema. |
 | `SERIAL PRIMARY KEY` | Todas as tabelas | Cria uma chave primária com incremento automático, garantindo um identificador único por registro. |
 | `VARCHAR(n)` | Nomes, e-mails, títulos | Limita o tamanho de campos de texto, protegendo contra dados excessivos. |
 | `TEXT` | Descrições, enunciados, conteúdo | Permite textos sem limite fixo para campos que precisam de mais espaço. |

@@ -152,7 +152,7 @@ A cláusula `ON CONFLICT (id_matricula, id_aula) DO NOTHING` evita registrar a m
 | Vagas e talentos | Sim | Não |
 | Gestão de usuários | Não (admin via SQL) | Sim (tela dedicada) |
 | Foco | Empresas + escola | Escola |
-| Número de tabelas | 14 | 9 |
+| Número de tabelas | 14 | 11 |
 
 A HighTech School concentra as funcionalidades essenciais de aprendizagem e gestão escolar, sem os módulos corporativos e de empregabilidade.
 

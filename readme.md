@@ -80,18 +80,18 @@ Na raiz do repositório, execute o script SQL:
 psql -U admin_school -d hightech_school -f database/schema.sql
 ```
 
-O arquivo `database/schema.sql` cria as 9 tabelas do sistema (usuarios, alunos, cursos, matriculas, aulas, progresso_aulas, provas, questoes_prova, alternativas_prova, tentativas_prova, certificados) e insere dois cursos iniciais de demonstração.
+O arquivo `database/schema.sql` cria as 11 tabelas do sistema (`usuarios`, `alunos`, `cursos`, `matriculas`, `aulas`, `progresso_aulas`, `provas`, `questoes_prova`, `alternativas_prova`, `tentativas_prova` e `certificados`) e insere dois cursos iniciais de demonstração.
 
 
 ### Passo 4: Configurar a conexão PHP
 
 A aplicação lê as configurações em `database/connect.php`. Você pode definir variáveis de ambiente no seu sistema ou ajustar diretamente os valores padrão no arquivo:
 
-- `DB_HOST`: Endereço do servidor PostgreSQL (padrão: `127.0.0.1`).
+- `DB_HOST`: Endereço do servidor PostgreSQL (padrão: `192.168.10.52`).
 - `DB_PORT`: Porta do servidor (padrão: `5432`).
 - `DB_NAME`: Nome da base de dados (padrão: `hightech_school`).
-- `DB_USER`: Usuário do banco (padrão: `postgres`).
-- `DB_PASS`: Senha do usuário do banco (padrão: vazia).
+- `DB_USER`: Usuário do banco (padrão: `admin_school`).
+- `DB_PASS`: Senha do usuário do banco (padrão: `admin123`).
 
 Confirme que os módulos necessários estão habilitados:
 
@@ -115,7 +115,7 @@ No navegador desse computador, abra:
 http://localhost:8000
 ```
 
-O `index.php` redireciona para `portal_empresa.php`.
+O `index.php` redireciona para `aplicacao.php`, a página pública de cursos.
 
 ### Passo 6: Criar uma conta e acessar
 
