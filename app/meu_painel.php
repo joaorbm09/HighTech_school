@@ -1,29 +1,42 @@
 <?php
 // Painel privado do aluno; exige uma sessão de usuário válida.
+
 require_once __DIR__ . '/../includes/auth.php';
+/* Exige uma identidade autenticada antes de continuar. Nas telas de aulas e provas, a matrícula desse
+ * aluno ainda precisa ser verificada separadamente. */
 exigirLogin();
 require_once __DIR__ . '/../includes/functions.php';
 
 $usuario = obterUsuarioLogado();
 // Localiza o cadastro acadêmico associado à conta; cria-o se ainda não existir.
+/* A conta de acesso e o cadastro acadêmico ficam em tabelas distintas; o projeto associa os dois pelo
+ * e-mail. É o ID acadêmico encontrado aqui que será usado nas matrículas. */
 $aluno = buscarAlunoPorEmail($conexao, $usuario['email']);
 
 if (!$aluno && $conexao) {
+    /* Sincroniza uma conta que ainda não tem cadastro acadêmico, usando nome/e-mail da sessão, turma
+     * padrão HT-2026 e campos opcionais nulos. */
     cadastrarAluno($conexao, $usuario['nome'], null, $usuario['email'], 'HT-2026', null);
+    /* A conta de acesso e o cadastro acadêmico ficam em tabelas distintas; o projeto associa os dois
+     * pelo e-mail. É o ID acadêmico encontrado aqui que será usado nas matrículas. */
     $aluno = buscarAlunoPorEmail($conexao, $usuario['email']);
 }
 
 $mensagem = '';
 // O token protege a solicitação de matrícula enviada pelo formulário.
 if (empty($_SESSION['csrf_matricula'])) {
+    /* Gera um token aleatório para proteger o formulário contra CSRF. */
     $_SESSION['csrf_matricula'] = bin2hex(random_bytes(32));
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Valida o pedido de matrícula e apresenta o resultado ao aluno.
+
     $token = $_POST['csrf_token'] ?? '';
+
     $idCurso = filter_var($_POST['id_curso'] ?? '', FILTER_VALIDATE_INT);
 
+    /* Confere o token CSRF antes de processar o formulário. */
     if (!is_string($token) || !hash_equals($_SESSION['csrf_matricula'], $token)) {
         $mensagem = 'A sessão expirou. Atualize a página e tente novamente.';
     } elseif (!$aluno || !$idCurso) {
@@ -44,6 +57,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Carrega os cursos já matriculados e os cursos que ainda aceitam matrícula.
 // Os dados também incluem progresso, tentativas e certificados para decidir quais ações mostrar.
+/* O ternário condição ? valor_se_verdadeiro : valor_se_falso escolhe um dos dois valores. Já a forma
+ * abreviada valor ?: alternativa usa a alternativa para qualquer valor considerado falso. */
 $cursosAluno = $aluno ? listarCursosDoAluno($conexao, $aluno['id']) : [];
 $cursosDisponiveis = $aluno
     ? listarCursosDisponiveisParaMatricula($conexao, $aluno['id'])
@@ -63,9 +78,9 @@ $cursosDisponiveis = $aluno
     <!-- Mostra progresso, aulas, prova e certificado disponíveis em cada curso. -->
     <main class="container">
         <h1>Meu painel</h1>
-        <p>Olá, <?php echo htmlspecialchars($usuario['nome'], ENT_QUOTES, 'UTF-8'); ?>.</p>
+        <p>Olá, <?php  echo htmlspecialchars($usuario['nome'], ENT_QUOTES, 'UTF-8'); ?>.</p>
 
-        <?php if ($mensagem !== ''): ?>
+        <?php  if ($mensagem !== ''): ?>
             <div class="alert"><?php echo htmlspecialchars($mensagem, ENT_QUOTES, 'UTF-8'); ?></div>
         <?php endif; ?>
 
@@ -77,6 +92,7 @@ $cursosDisponiveis = $aluno
                 <div class="grid">
                     <?php foreach ($cursosAluno as $curso): ?>
                         <?php
+                        
                         $aulasTotal = (int) $curso['aulas_total'];
                         $aulasFeitas = (int) $curso['aulas_concluidas'];
                         $obrigatoriasOk = (int) $curso['aulas_obrigatorias_total']

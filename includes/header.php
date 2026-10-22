@@ -1,8 +1,13 @@
 <?php
+
 require_once __DIR__ . '/auth.php';
 
 // Ajusta os links conforme a página esteja na raiz, em app/ ou em login/.
+/* Descobre a pasta do script requisitado e usa ../ quando está em app ou login, para que os links do
+ * cabeçalho compartilhado apontem para a raiz correta. */
 $baseUrl = in_array(basename(dirname($_SERVER['SCRIPT_NAME'] ?? '')), ['app', 'login'], true)
+    /* O ternário condição ? valor_se_verdadeiro : valor_se_falso escolhe um dos dois valores. Já a
+     * forma abreviada valor ?: alternativa usa a alternativa para qualquer valor considerado falso. */
     ? '../'
     : '';
 $usuario = obterUsuarioLogado();
@@ -19,7 +24,7 @@ $usuario = obterUsuarioLogado();
     <div class="container nav-links">
         <!-- A página inicial do sistema fica como início; a gestão fica em blocos específicos. -->
         <a href="<?php echo $baseUrl; ?>aplicacao.php">Início</a>
-        <?php if ($usuario && $usuario['perfil'] === 'admin'): ?>
+        <?php  if ($usuario && $usuario['perfil'] === 'admin'): ?>
             <a href="<?php echo $baseUrl; ?>app/usuarios.php">Usuários</a>
             <a href="<?php echo $baseUrl; ?>app/alunos.php">Alunos</a>
             <a href="<?php echo $baseUrl; ?>app/cursos.php">Cursos</a>
@@ -30,7 +35,7 @@ $usuario = obterUsuarioLogado();
             <a href="<?php echo $baseUrl; ?>app/meu_painel.php">Meu painel</a>
         <?php endif; ?>
         <?php if ($usuario): ?>
-            <span class="nav-user"><?php echo htmlspecialchars($usuario['nome'], ENT_QUOTES, 'UTF-8'); ?></span>
+            <span class="nav-user"><?php  echo htmlspecialchars($usuario['nome'], ENT_QUOTES, 'UTF-8'); ?></span>
             <a href="<?php echo $baseUrl; ?>login/logout.php">Sair</a>
         <?php else: ?>
             <a href="<?php echo $baseUrl; ?>login/login.php">Entrar</a>

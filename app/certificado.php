@@ -1,5 +1,6 @@
 <?php
 // Esta página pública confere o formato do código e procura o certificado no banco.
+
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 
@@ -7,22 +8,34 @@ $erro = '';
 $certificado = false;
 // O código pode vir pela URL; normalizamos letras e espaços antes de validar o formato.
 $codigo = isset($_GET['codigo']) && is_string($_GET['codigo'])
+    /* O ternário condição ? valor_se_verdadeiro : valor_se_falso escolhe um dos dois valores. Já a
+     * forma abreviada valor ?: alternativa usa a alternativa para qualquer valor considerado falso. */
     ? strtolower(trim($_GET['codigo']))
     : '';
+/* Confere o formato UUID do código antes de consultar o certificado no banco. */
 if (!preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/', $codigo)) {
     // O código esperado é um UUID, identificador usado para localizar um certificado específico.
+    /* Define o status HTTP 400 (pedido inválido). A mensagem de erro definida no fluxo será exibida no
+     * HTML; mudar o status sozinho não interrompe o script. */
     http_response_code(400);
     $erro = 'O código informado não possui um formato válido.';
 } elseif (!$conexao) {
+    /* Define o status HTTP 503 (serviço temporariamente indisponível). A mensagem de erro definida no
+     * fluxo será exibida no HTML; mudar o status sozinho não interrompe o script. */
     http_response_code(503);
     $erro = 'Não foi possível validar o certificado no momento. Tente novamente mais tarde.';
 } else {
     // Além do formato válido, o certificado precisa existir e estar registrado no banco.
     $certificado = validarCertificadoPorCodigo($conexao, $codigo);
+
     if ($certificado === null) {
+        /* Define o status HTTP 500 (falha interna ao processar os dados). A mensagem de erro definida
+         * no fluxo será exibida no HTML; mudar o status sozinho não interrompe o script. */
         http_response_code(500);
         $erro = 'Não foi possível consultar o registro do certificado.';
     } elseif (!$certificado) {
+        /* Define o status HTTP 404 (recurso não encontrado). A mensagem de erro definida no fluxo será
+         * exibida no HTML; mudar o status sozinho não interrompe o script. */
         http_response_code(404);
         $erro = 'Nenhum certificado válido foi encontrado para este código.';
     }
@@ -33,7 +46,7 @@ if (!preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo $certificado ? 'Certificado - ' . htmlspecialchars($certificado['curso_nome'], ENT_QUOTES, 'UTF-8') : 'Validar Certificado'; ?> - HighTech School</title>
+    <title><?php  echo $certificado ? 'Certificado - ' . htmlspecialchars($certificado['curso_nome'], ENT_QUOTES, 'UTF-8') : 'Validar Certificado'; ?> - HighTech School</title>
     <link rel="stylesheet" href="../assets/style.css">
     <style>
         /* Define a aparência do certificado na tela e na versão impressa. */
@@ -63,7 +76,7 @@ if (!preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0
     <?php include __DIR__ . '/../includes/header.php'; ?>
     <!-- Apresenta os dados verificados ou a mensagem correspondente ao erro. -->
     <main class="container">
-        <?php if ($erro !== ''): ?>
+        <?php  if ($erro !== ''): ?>
             <section class="admin-card" style="margin-top: 2rem;">
                 <h2>Validação do certificado</h2>
                 <div class="alert alert-danger"><?php echo htmlspecialchars($erro, ENT_QUOTES, 'UTF-8'); ?></div>
@@ -76,7 +89,7 @@ if (!preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0
                 <p class="recipient"><?php echo htmlspecialchars($certificado['aluno_nome'], ENT_QUOTES, 'UTF-8'); ?></p>
                 <p>concluiu com aproveitamento o curso</p>
                 <p class="course"><?php echo htmlspecialchars($certificado['curso_nome'], ENT_QUOTES, 'UTF-8'); ?></p>
-                <p style="margin-top: 1rem;">Carga horária: <?php echo (int) $certificado['carga_horaria']; ?> horas</p>
+                <p style="margin-top: 1rem;">Carga horária: <?php  echo (int) $certificado['carga_horaria']; ?> horas</p>
                 <p>Data de emissão: <?php echo date('d/m/Y', strtotime($certificado['emitido_em'])); ?></p>
                 <p style="margin-top: 2rem;">Código de validação</p>
                 <p class="certificate-code"><?php echo htmlspecialchars($certificado['codigo'], ENT_QUOTES, 'UTF-8'); ?></p>

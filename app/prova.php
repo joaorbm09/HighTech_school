@@ -1,10 +1,15 @@
 <?php
 // Área do aluno para fazer a prova, consultar tentativas e obter certificado.
+
 require_once __DIR__ . '/../includes/auth.php';
+/* Exige uma identidade autenticada antes de continuar. Nas telas de aulas e provas, a matrícula desse
+ * aluno ainda precisa ser verificada separadamente. */
 exigirLogin();
 require_once __DIR__ . '/../includes/functions.php';
 
 $usuario = obterUsuarioLogado();
+/* A conta de acesso e o cadastro acadêmico ficam em tabelas distintas; o projeto associa os dois pelo
+ * e-mail. É o ID acadêmico encontrado aqui que será usado nas matrículas. */
 $aluno = buscarAlunoPorEmail($conexao, $usuario['email']);
 $erro = '';
 $mensagem_resultado = null;
@@ -14,9 +19,13 @@ $questoes = [];
 $tentativas = [];
 $certificado = false;
 $pendentes = null;
+
 $id_curso_raw = $_SERVER['REQUEST_METHOD'] === 'POST'
+    /* O ternário condição ? valor_se_verdadeiro : valor_se_falso escolhe um dos dois valores. Já a
+     * forma abreviada valor ?: alternativa usa a alternativa para qualquer valor considerado falso. */
     ? ($_POST['id_curso'] ?? '')
     : ($_GET['id_curso'] ?? '');
+
 $id_curso = filter_var(
     is_string($id_curso_raw) || is_int($id_curso_raw) ? $id_curso_raw : '',
     FILTER_VALIDATE_INT,
@@ -25,28 +34,42 @@ $id_curso = filter_var(
 
 // Confere conexão, cadastro acadêmico, matrícula ativa e prova publicada.
 if (!$conexao) {
+    /* Define o status HTTP 503 (serviço temporariamente indisponível). A mensagem de erro definida no
+     * fluxo será exibida no HTML; mudar o status sozinho não interrompe o script. */
     http_response_code(503);
     $erro = 'Não foi possível conectar ao sistema. Tente novamente mais tarde.';
 } elseif (!$aluno) {
+    /* Define o status HTTP 403 (acesso recusado). A mensagem de erro definida no fluxo será exibida no
+     * HTML; mudar o status sozinho não interrompe o script. */
     http_response_code(403);
     $erro = 'Não foi possível localizar seu cadastro acadêmico.';
 } elseif ($id_curso === false) {
+    /* Define o status HTTP 400 (pedido inválido). A mensagem de erro definida no fluxo será exibida no
+     * HTML; mudar o status sozinho não interrompe o script. */
     http_response_code(400);
     $erro = 'O curso informado é inválido.';
 } else {
     $matricula = obterMatriculaAtivaAlunoCurso($conexao, $aluno['id'], $id_curso);
     if ($matricula === null) {
+        /* Define o status HTTP 500 (falha interna ao processar os dados). A mensagem de erro definida
+         * no fluxo será exibida no HTML; mudar o status sozinho não interrompe o script. */
         http_response_code(500);
         $erro = 'Não foi possível validar sua matrícula.';
     } elseif (!$matricula) {
+        /* Define o status HTTP 403 (acesso recusado). A mensagem de erro definida no fluxo será
+         * exibida no HTML; mudar o status sozinho não interrompe o script. */
         http_response_code(403);
         $erro = 'Você precisa de uma matrícula ativa para acessar esta prova.';
     } else {
         $prova = obterProvaDoCurso($conexao, $id_curso, true);
         if ($prova === null) {
+            /* Define o status HTTP 500 (falha interna ao processar os dados). A mensagem de erro
+             * definida no fluxo será exibida no HTML; mudar o status sozinho não interrompe o script. */
             http_response_code(500);
             $erro = 'Não foi possível carregar a prova.';
         } elseif (!$prova) {
+            /* Define o status HTTP 404 (recurso não encontrado). A mensagem de erro definida no fluxo
+             * será exibida no HTML; mudar o status sozinho não interrompe o script. */
             http_response_code(404);
             $erro = 'Ainda não há uma prova publicada para este curso.';
         } else {
@@ -64,6 +87,9 @@ if (!$conexao) {
             $certificado = obterCertificadoDaMatricula($conexao, $matricula['matricula_id']);
 
             if ($pendentes === null || $questoes === false || $tentativas === false || $certificado === null) {
+                /* Define o status HTTP 500 (falha interna ao processar os dados). A mensagem de erro
+                 * definida no fluxo será exibida no HTML; mudar o status sozinho não interrompe o
+                 * script. */
                 http_response_code(500);
                 $erro = 'Ocorreu um erro ao carregar os dados da sua prova.';
             }
@@ -74,12 +100,17 @@ if (!$conexao) {
 if ($matricula && $prova && $_SERVER['REQUEST_METHOD'] === 'POST' && $erro === '') {
     $token = $_POST['csrf_token'] ?? '';
     if (!is_string($token) || empty($_SESSION['csrf_prova']) ||
+        /* Confere o token CSRF antes de processar o formulário. */
         !hash_equals($_SESSION['csrf_prova'], $token)) {
+        /* Define o status HTTP 400 (pedido inválido). A mensagem de erro definida no fluxo será
+         * exibida no HTML; mudar o status sozinho não interrompe o script. */
         http_response_code(400);
         $erro = 'A solicitação expirou ou não pôde ser validada. Atualize a página e tente novamente.';
     } else {
         $respostas = $_POST['respostas'] ?? null;
         if (!is_array($respostas)) {
+            /* Define o status HTTP 400 (pedido inválido). A mensagem de erro definida no fluxo será
+             * exibida no HTML; mudar o status sozinho não interrompe o script. */
             http_response_code(400);
             $erro = 'Envie uma resposta para cada questão.';
         } else {
@@ -89,27 +120,42 @@ if ($matricula && $prova && $_SERVER['REQUEST_METHOD'] === 'POST' && $erro === '
                 $prova['id'],
                 $respostas
             );
+
             if (in_array($resultado['status'], ['passed', 'failed', 'already_passed'], true)) {
+                /* Guarda o resultado por uma navegação: após salvar a tentativa, o redirecionamento
+                 * abre uma nova requisição GET e recupera essa mensagem pela sessão. */
                 $_SESSION['resultado_prova'] = [
                     'id_curso' => $id_curso,
                     'resultado' => $resultado
                 ];
+
                 header('Location: prova.php?id_curso=' . $id_curso);
                 exit;
             }
             if ($resultado['status'] === 'lessons_pending') {
+                /* Define o status HTTP 403 (acesso recusado). A mensagem de erro definida no fluxo
+                 * será exibida no HTML; mudar o status sozinho não interrompe o script. */
                 http_response_code(403);
                 $erro = 'Conclua todas as aulas obrigatórias antes de fazer a prova.';
             } elseif ($resultado['status'] === 'attempts_exhausted') {
+                /* Define o status HTTP 403 (acesso recusado). A mensagem de erro definida no fluxo
+                 * será exibida no HTML; mudar o status sozinho não interrompe o script. */
                 http_response_code(403);
                 $erro = 'Você usou todas as tentativas disponíveis para esta prova.';
             } elseif ($resultado['status'] === 'invalid_answers') {
+                /* Define o status HTTP 400 (pedido inválido). A mensagem de erro definida no fluxo
+                 * será exibida no HTML; mudar o status sozinho não interrompe o script. */
                 http_response_code(400);
                 $erro = 'As respostas enviadas não correspondem às questões desta prova. Revise e tente novamente.';
             } elseif ($resultado['status'] === 'unavailable') {
+                /* Define o status HTTP 403 (acesso recusado). A mensagem de erro definida no fluxo
+                 * será exibida no HTML; mudar o status sozinho não interrompe o script. */
                 http_response_code(403);
                 $erro = 'A prova não está mais disponível para esta matrícula.';
             } else {
+                /* Define o status HTTP 500 (falha interna ao processar os dados). A mensagem de erro
+                 * definida no fluxo será exibida no HTML; mudar o status sozinho não interrompe o
+                 * script. */
                 http_response_code(500);
                 $erro = 'Não foi possível registrar sua tentativa. Tente novamente mais tarde.';
             }
@@ -118,8 +164,11 @@ if ($matricula && $prova && $_SERVER['REQUEST_METHOD'] === 'POST' && $erro === '
 }
 // Recupera o resultado após o redirecionamento para evitar reenviar o formulário.
 if (!empty($_SESSION['resultado_prova']) &&
+
     (int) $_SESSION['resultado_prova']['id_curso'] === (int) $id_curso) {
     $mensagem_resultado = $_SESSION['resultado_prova']['resultado'];
+    /* Apaga apenas a mensagem já lida, sem encerrar a sessão. Assim atualizar a página não volta a
+     * exibir esse mesmo resultado transitório. */
     unset($_SESSION['resultado_prova']);
     $certificado = $matricula
         ? obterCertificadoDaMatricula($conexao, $matricula['matricula_id'])
@@ -130,8 +179,12 @@ if (!empty($_SESSION['resultado_prova']) &&
 }
 // Libera o formulário somente quando todos os requisitos da prova forem atendidos.
 if (empty($_SESSION['csrf_prova'])) {
+    /* Gera um token aleatório para proteger o formulário contra CSRF. */
     $_SESSION['csrf_prova'] = bin2hex(random_bytes(32));
 }
+/* Esta condição controla a exibição do formulário: matrícula, prova, questões, zero aulas pendentes,
+ * ausência de certificado e tentativas disponíveis. A função de envio repete as verificações no
+ * servidor. */
 $pode_fazer_prova = $matricula && $prova && $questoes && $pendentes === 0 &&
     !$certificado && count($tentativas) < (int) $prova['max_tentativas'];
 ?>
@@ -148,8 +201,8 @@ $pode_fazer_prova = $matricula && $prova && $questoes && $pendentes === 0 &&
     <!-- Mostra questões, resultado, tentativas restantes e certificado, se houver. -->
     <main class="container">
         <p style="margin: 1rem 0;"><a href="meu_painel.php#meus-cursos" class="btn btn-outline">Voltar ao meu painel</a></p>
-        <?php if ($erro !== ''): ?>
-            <div class="alert alert-danger"><?php echo htmlspecialchars($erro, ENT_QUOTES, 'UTF-8'); ?></div>
+        <?php  if ($erro !== ''): ?>
+            <div class="alert alert-danger"><?php  echo htmlspecialchars($erro, ENT_QUOTES, 'UTF-8'); ?></div>
         <?php elseif ($matricula && $prova): ?>
             <section class="admin-card">
                 <div class="section-header">

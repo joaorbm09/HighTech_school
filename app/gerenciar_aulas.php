@@ -2,7 +2,10 @@
 // Esta página é a área administrativa para gerenciar as aulas dos cursos.
 // Aqui o administrador consegue cadastrar novas aulas, editar o conteúdo de aulas existentes
 // e publicar ou ocultar uma aula sem perder o histórico de progresso já registrado pelos alunos.
+
 require_once __DIR__ . '/../includes/auth.php';
+/* A autorização é verificada no servidor antes de consultar ou alterar os cadastros. Esconder o link
+ * de administração no menu não impediria o acesso pela URL. */
 exigirAdmin();
 require_once __DIR__ . '/../includes/functions.php';
 
@@ -27,9 +30,13 @@ if ($conexao) {
 }
 
 // Lê o curso selecionado pela URL ou pelo formulário.
+
 $id_curso_raw = $_SERVER['REQUEST_METHOD'] === 'POST'
+    /* O ternário condição ? valor_se_verdadeiro : valor_se_falso escolhe um dos dois valores. Já a
+     * forma abreviada valor ?: alternativa usa a alternativa para qualquer valor considerado falso. */
     ? ($_POST['id_curso'] ?? '')
     : ($_GET['curso_id'] ?? '');
+
 $id_curso = filter_var(
     is_string($id_curso_raw) || is_int($id_curso_raw) ? $id_curso_raw : '',
     FILTER_VALIDATE_INT,
@@ -39,18 +46,27 @@ $id_curso = filter_var(
 // Antes de qualquer ação, o sistema valida a conexão e a segurança da requisição.
 // Isso ajuda a evitar acesso indevido e dados inválidos.
 if (!$conexao) {
+    /* Define o status HTTP 503 (serviço temporariamente indisponível). A mensagem de erro definida no
+     * fluxo será exibida no HTML; mudar o status sozinho não interrompe o script. */
     http_response_code(503);
     $erro = 'Não foi possível conectar ao banco de dados. Tente novamente mais tarde.';
 } elseif ($cursos === false && $erro === '') {
+    /* Define o status HTTP 500 (falha interna ao processar os dados). A mensagem de erro definida no
+     * fluxo será exibida no HTML; mudar o status sozinho não interrompe o script. */
     http_response_code(500);
     $erro = 'Não foi possível carregar os cursos.';
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $token = $_POST['csrf_token'] ?? '';
     if (!is_string($token) || empty($_SESSION['csrf_aulas_admin']) ||
+        /* Confere o token CSRF antes de processar o formulário. */
         !hash_equals($_SESSION['csrf_aulas_admin'], $token)) {
+        /* Define o status HTTP 400 (pedido inválido). A mensagem de erro definida no fluxo será
+         * exibida no HTML; mudar o status sozinho não interrompe o script. */
         http_response_code(400);
         $erro = 'A solicitação expirou ou não pôde ser validada. Atualize a página e tente novamente.';
     } elseif ($id_curso === false) {
+        /* Define o status HTTP 400 (pedido inválido). A mensagem de erro definida no fluxo será
+         * exibida no HTML; mudar o status sozinho não interrompe o script. */
         http_response_code(400);
         $erro = 'Selecione um curso válido.';
     } else {
@@ -63,6 +79,8 @@ if (!$conexao) {
         }
 
         if (!$curso_selecionado) {
+            /* Define o status HTTP 400 (pedido inválido). A mensagem de erro definida no fluxo será
+             * exibida no HTML; mudar o status sozinho não interrompe o script. */
             http_response_code(400);
             $erro = 'O curso selecionado não existe.';
         } else {
@@ -87,12 +105,17 @@ if (!$conexao) {
                         $aula = $stmt->fetch();
                     } catch (PDOException $e) {
                         error_log('Erro ao buscar aula para alteração de publicação: ' . $e->getMessage());
+                        /* Define o status HTTP 500 (falha interna ao processar os dados). A mensagem
+                         * de erro definida no fluxo será exibida no HTML; mudar o status sozinho não
+                         * interrompe o script. */
                         http_response_code(500);
                         $erro = 'Não foi possível consultar a aula. Verifique a conexão com o banco e se a tabela de aulas existe.';
                     }
                 }
 
                 if (!$aula || (int) $aula['id_curso'] !== $id_curso) {
+                    /* Define o status HTTP 404 (recurso não encontrado). A mensagem de erro definida
+                     * no fluxo será exibida no HTML; mudar o status sozinho não interrompe o script. */
                     http_response_code(404);
                     $erro = 'A aula não existe neste curso.';
                 } else {
@@ -105,20 +128,28 @@ if (!$conexao) {
                         $stmt = $conexao->prepare(
                             'UPDATE aulas SET ativa = :ativa WHERE id = :id AND id_curso = :id_curso'
                         );
+
                         $stmt->bindValue('ativa', !$aula_ativa, PDO::PARAM_BOOL);
                         $stmt->bindValue('id', $id_aula, PDO::PARAM_INT);
                         $stmt->bindValue('id_curso', $id_curso, PDO::PARAM_INT);
                         $stmt->execute();
+                        /* Lê quantas linhas a última alteração afetou. Neste teste, sucesso de
+                         * execute() sozinho não prova que o ID procurado realmente encontrou um
+                         * registro. */
                         if ($stmt->rowCount() > 0) {
                             $_SESSION['flash_aulas_admin'] = $aula_ativa
                                 ? 'Aula ocultada. O progresso já registrado pelos alunos foi preservado.'
                                 : 'Aula publicada para os alunos matriculados.';
+
                             header('Location: gerenciar_aulas.php?curso_id=' . $id_curso);
                             exit;
                         }
                         $erro = 'Não foi possível alterar a publicação da aula.';
                     } catch (PDOException $e) {
                         error_log('Erro ao alterar publicação da aula: ' . $e->getMessage());
+                        /* Define o status HTTP 500 (falha interna ao processar os dados). A mensagem
+                         * de erro definida no fluxo será exibida no HTML; mudar o status sozinho não
+                         * interrompe o script. */
                         http_response_code(500);
                         $erro = 'Não foi possível alterar a publicação da aula.';
                     }
@@ -137,6 +168,9 @@ if (!$conexao) {
                 $descricao = is_string($_POST['descricao'] ?? null) ? trim($_POST['descricao']) : '';
                 $conteudo = is_string($_POST['conteudo'] ?? null) ? trim($_POST['conteudo']) : '';
                 $video_url = is_string($_POST['video_url'] ?? null) ? trim($_POST['video_url']) : '';
+                /* Conta correspondências da expressão regular. /./us percorre caracteres Unicode
+                 * incluindo quebras de linha, permitindo limitar o título por caracteres em vez de
+                 * bytes. */
                 $titulo_caracteres = preg_match_all('/./us', $titulo);
                 $ordem = filter_var(
                     is_string($_POST['ordem'] ?? null) || is_int($_POST['ordem'] ?? null)
@@ -148,6 +182,8 @@ if (!$conexao) {
                 $obrigatoria = isset($_POST['obrigatoria']);
 
                 if ($id_aula_raw !== '' && $id_aula === false) {
+                    /* Define o status HTTP 400 (pedido inválido). A mensagem de erro definida no fluxo
+                     * será exibida no HTML; mudar o status sozinho não interrompe o script. */
                     http_response_code(400);
                     $erro = 'O identificador da aula é inválido.';
                 } elseif ($titulo === '' || $titulo_caracteres === false || $titulo_caracteres > 150) {
@@ -156,6 +192,8 @@ if (!$conexao) {
                     $erro = 'A ordem deve ser um número inteiro maior que zero.';
                 } elseif (strlen($video_url) > 500 ||
                     !filter_var($video_url, FILTER_VALIDATE_URL) ||
+                    /* Extrai partes da URL; PHP_URL_SCHEME pede o protocolo. O código aceita apenas
+                     * http/https antes de montar o link da aula. */
                     !in_array(strtolower((string) parse_url($video_url, PHP_URL_SCHEME)), ['http', 'https'], true)) {
                     $erro = 'Informe um link válido começando com http:// ou https://.';
                 } else {
@@ -173,6 +211,9 @@ if (!$conexao) {
                             $erro = 'Não foi possível localizar a aula no banco. Verifique a conexão e a estrutura do banco de dados.';
                         }
                         if ($aula_atual === null && $erro === '') {
+                            /* Define o status HTTP 404 (recurso não encontrado). A mensagem de erro
+                             * definida no fluxo será exibida no HTML; mudar o status sozinho não
+                             * interrompe o script. */
                             http_response_code(404);
                             $erro = 'A aula que você tentou editar não foi encontrada.';
                         }
@@ -212,9 +253,14 @@ if (!$conexao) {
                                 $stmt->bindValue('id', $id_aula, PDO::PARAM_INT);
                                 $stmt->bindValue('id_curso', $id_curso, PDO::PARAM_INT);
                                 $stmt->execute();
+                                /* Lê quantas linhas a última alteração afetou. Neste teste, sucesso de
+                                 * execute() sozinho não prova que o ID procurado realmente encontrou
+                                 * um registro. */
                                 $resultado = $stmt->rowCount() > 0 ? 'updated' : 'unchanged';
                             }
                         } catch (PDOException $e) {
+                            /* O código 23505 indica violação de unicidade, como e-mail ou ordem de
+                             * questão duplicados. */
                             if ($e->getCode() === '23505') {
                                 $resultado = 'order_conflict';
                             } else {
@@ -227,6 +273,7 @@ if (!$conexao) {
                             $_SESSION['flash_aulas_admin'] = $resultado === 'created'
                                 ? 'Aula cadastrada com sucesso.'
                                 : 'Aula atualizada com sucesso.';
+
                             header('Location: gerenciar_aulas.php?curso_id=' . $id_curso);
                             exit;
                         }
@@ -249,6 +296,8 @@ if (!$conexao) {
                     ];
                 }
             } else {
+                /* Define o status HTTP 400 (pedido inválido). A mensagem de erro definida no fluxo
+                 * será exibida no HTML; mudar o status sozinho não interrompe o script. */
                 http_response_code(400);
                 $erro = 'A ação solicitada não é válida.';
             }
@@ -286,6 +335,8 @@ if ($conexao && $cursos && $id_curso !== false && $id_curso !== null) {
         }
     }
     if (!$curso_selecionado) {
+        /* Define o status HTTP 404 (recurso não encontrado). A mensagem de erro definida no fluxo será
+         * exibida no HTML; mudar o status sozinho não interrompe o script. */
         http_response_code(404);
         $erro = 'O curso selecionado não existe.';
     }
@@ -320,6 +371,8 @@ if (!$aula_edicao && isset($_GET['editar'])) {
         ['options' => ['min_range' => 1]]
     );
     if ($id_edicao === false) {
+        /* Define o status HTTP 400 (pedido inválido). A mensagem de erro definida no fluxo será
+         * exibida no HTML; mudar o status sozinho não interrompe o script. */
         http_response_code(400);
         $erro = 'A aula informada para edição é inválida.';
     } elseif ($conexao) {
@@ -335,6 +388,8 @@ if (!$aula_edicao && isset($_GET['editar'])) {
             $erro = 'Não foi possível abrir a aula para edição. Verifique se o banco está acessível e se a tabela de aulas existe.';
         }
         if (!$aula_edicao && $erro === '') {
+            /* Define o status HTTP 404 (recurso não encontrado). A mensagem de erro definida no fluxo
+             * será exibida no HTML; mudar o status sozinho não interrompe o script. */
             http_response_code(404);
             $aula_edicao = null;
             $erro = 'A aula solicitada não pertence ao curso selecionado.';
@@ -344,6 +399,7 @@ if (!$aula_edicao && isset($_GET['editar'])) {
 // Este token protege a página administrativa contra envio externo ou manipulado do formulário.
 // Ele é usado para garantir que o POST veio da própria página e não de um site estranho.
 if (empty($_SESSION['csrf_aulas_admin'])) {
+    /* Gera um token aleatório para proteger o formulário contra CSRF. */
     $_SESSION['csrf_aulas_admin'] = bin2hex(random_bytes(32));
 }
 $csrf_token = $_SESSION['csrf_aulas_admin'];
@@ -367,8 +423,8 @@ $csrf_token = $_SESSION['csrf_aulas_admin'];
                 <p>Cadastre o título e o link do material. Os alunos com matrícula ativa verão as aulas publicadas no painel.</p>
             </div>
 
-            <?php if ($erro !== ''): ?>
-                <div class="alert alert-danger"><?php echo htmlspecialchars($erro, ENT_QUOTES, 'UTF-8'); ?></div>
+            <?php  if ($erro !== ''): ?>
+                <div class="alert alert-danger"><?php  echo htmlspecialchars($erro, ENT_QUOTES, 'UTF-8'); ?></div>
             <?php endif; ?>
             <?php if ($mensagem !== ''): ?>
                 <div class="alert alert-success"><?php echo htmlspecialchars($mensagem, ENT_QUOTES, 'UTF-8'); ?></div>

@@ -1,6 +1,9 @@
 <?php
 // Área administrativa de configuração de provas e gerenciamento de questões.
+
 require_once __DIR__ . '/../includes/auth.php';
+/* A autorização é verificada no servidor antes de consultar ou alterar os cadastros. Esconder o link
+ * de administração no menu não impediria o acesso pela URL. */
 exigirAdmin();
 require_once __DIR__ . '/../includes/functions.php';
 
@@ -16,9 +19,13 @@ if ($conexao) {
         $cursos = false;
     }
 }
+
 $id_curso_raw = $_SERVER['REQUEST_METHOD'] === 'POST'
+    /* O ternário condição ? valor_se_verdadeiro : valor_se_falso escolhe um dos dois valores. Já a
+     * forma abreviada valor ?: alternativa usa a alternativa para qualquer valor considerado falso. */
     ? ($_POST['id_curso'] ?? '')
     : ($_GET['curso_id'] ?? '');
+
 $id_curso = filter_var(
     is_string($id_curso_raw) || is_int($id_curso_raw) ? $id_curso_raw : '',
     FILTER_VALIDATE_INT,
@@ -26,18 +33,27 @@ $id_curso = filter_var(
 );
 // Confere banco, curso e token antes de aceitar alterações nas provas.
 if (!$conexao) {
+    /* Define o status HTTP 503 (serviço temporariamente indisponível). A mensagem de erro definida no
+     * fluxo será exibida no HTML; mudar o status sozinho não interrompe o script. */
     http_response_code(503);
     $erro = 'Não foi possível conectar ao banco de dados. Tente novamente mais tarde.';
 } elseif ($cursos === false) {
+    /* Define o status HTTP 500 (falha interna ao processar os dados). A mensagem de erro definida no
+     * fluxo será exibida no HTML; mudar o status sozinho não interrompe o script. */
     http_response_code(500);
     $erro = 'Não foi possível carregar os cursos.';
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $token = $_POST['csrf_token'] ?? '';
     if (!is_string($token) || empty($_SESSION['csrf_provas_admin']) ||
+        /* Confere o token CSRF antes de processar o formulário. */
         !hash_equals($_SESSION['csrf_provas_admin'], $token)) {
+        /* Define o status HTTP 400 (pedido inválido). A mensagem de erro definida no fluxo será
+         * exibida no HTML; mudar o status sozinho não interrompe o script. */
         http_response_code(400);
         $erro = 'A solicitação expirou ou não pôde ser validada. Atualize a página e tente novamente.';
     } elseif ($id_curso === false) {
+        /* Define o status HTTP 400 (pedido inválido). A mensagem de erro definida no fluxo será
+         * exibida no HTML; mudar o status sozinho não interrompe o script. */
         http_response_code(400);
         $erro = 'Selecione um curso válido.';
     } else {
@@ -50,6 +66,8 @@ if (!$conexao) {
         }
 
         if (!$curso_selecionado) {
+            /* Define o status HTTP 400 (pedido inválido). A mensagem de erro definida no fluxo será
+             * exibida no HTML; mudar o status sozinho não interrompe o script. */
             http_response_code(400);
             $erro = 'O curso selecionado não existe.';
         } else {
@@ -59,6 +77,9 @@ if (!$conexao) {
             $prova = obterProvaDoCurso($conexao, $id_curso);
 
             if ($prova === null) {
+                /* Define o status HTTP 500 (falha interna ao processar os dados). A mensagem de erro
+                 * definida no fluxo será exibida no HTML; mudar o status sozinho não interrompe o
+                 * script. */
                 http_response_code(500);
                 $erro = 'Não foi possível carregar a avaliação deste curso.';
             } elseif ($acao === 'salvar_configuracao') {
@@ -81,6 +102,7 @@ if (!$conexao) {
                     $erro = 'O limite deve ser um número entre 1 e 20 tentativas.';
                 } elseif (salvarProvaDoCurso($conexao, $id_curso, $nota, $limite)) {
                     $_SESSION['flash_provas_admin'] = 'Configuração da prova salva.';
+
                     header('Location: gerenciar_provas.php?curso_id=' . $id_curso);
                     exit;
                 } else {
@@ -93,6 +115,7 @@ if (!$conexao) {
                     $_SESSION['flash_provas_admin'] = $ativa
                         ? 'Prova desativada. Questões e resultados foram preservados.'
                         : 'Prova publicada para alunos que concluíram as aulas obrigatórias.';
+
                     header('Location: gerenciar_provas.php?curso_id=' . $id_curso);
                     exit;
                 }
@@ -136,6 +159,8 @@ if (!$conexao) {
                 );
 
                 if ($id_questao_raw !== '' && $id_questao === false) {
+                    /* Define o status HTTP 400 (pedido inválido). A mensagem de erro definida no fluxo
+                     * será exibida no HTML; mudar o status sozinho não interrompe o script. */
                     http_response_code(400);
                     $erro = 'O identificador da questão é inválido.';
                 } elseif ($enunciado === '') {
@@ -160,6 +185,7 @@ if (!$conexao) {
                         $_SESSION['flash_provas_admin'] = $resultado === 'created'
                             ? 'Questão adicionada à prova.'
                             : 'Questão atualizada.';
+
                         header('Location: gerenciar_provas.php?curso_id=' . $id_curso);
                         exit;
                     }
@@ -187,16 +213,21 @@ if (!$conexao) {
                     ['options' => ['min_range' => 1]]
                 );
                 if ($id_questao === false) {
+                    /* Define o status HTTP 400 (pedido inválido). A mensagem de erro definida no fluxo
+                     * será exibida no HTML; mudar o status sozinho não interrompe o script. */
                     http_response_code(400);
                     $erro = 'O identificador da questão é inválido.';
                 } elseif (excluirQuestaoProva($conexao, $prova['id'], $id_questao)) {
                     $_SESSION['flash_provas_admin'] = 'Questão removida. As notas já registradas foram preservadas.';
+
                     header('Location: gerenciar_provas.php?curso_id=' . $id_curso);
                     exit;
                 } else {
                     $erro = 'Não foi possível remover a questão. Verifique se ela pertence a esta prova.';
                 }
             } else {
+                /* Define o status HTTP 400 (pedido inválido). A mensagem de erro definida no fluxo
+                 * será exibida no HTML; mudar o status sozinho não interrompe o script. */
                 http_response_code(400);
                 $erro = 'A prova precisa estar configurada e a ação solicitada deve ser válida.';
             }
@@ -230,16 +261,23 @@ if ($conexao && $cursos && $id_curso !== false && $id_curso !== null) {
         }
     }
     if (!$curso_selecionado) {
+        /* Define o status HTTP 404 (recurso não encontrado). A mensagem de erro definida no fluxo será
+         * exibida no HTML; mudar o status sozinho não interrompe o script. */
         http_response_code(404);
         $erro = 'O curso selecionado não existe.';
     } else {
         $prova = obterProvaDoCurso($conexao, $id_curso);
         if ($prova === null) {
+            /* Define o status HTTP 500 (falha interna ao processar os dados). A mensagem de erro
+             * definida no fluxo será exibida no HTML; mudar o status sozinho não interrompe o script. */
             http_response_code(500);
             $erro = 'Não foi possível carregar a prova do curso.';
         } elseif ($prova) {
             $questoes = listarQuestoesProvaAdmin($conexao, $prova['id']);
             if ($questoes === false) {
+                /* Define o status HTTP 500 (falha interna ao processar os dados). A mensagem de erro
+                 * definida no fluxo será exibida no HTML; mudar o status sozinho não interrompe o
+                 * script. */
                 http_response_code(500);
                 $erro = 'Não foi possível carregar as questões.';
             } else {
@@ -258,6 +296,8 @@ if (!$questao_edicao && isset($_GET['editar_questao']) && $prova && is_array($qu
         ['options' => ['min_range' => 1]]
     );
     if ($id_edicao === false) {
+        /* Define o status HTTP 400 (pedido inválido). A mensagem de erro definida no fluxo será
+         * exibida no HTML; mudar o status sozinho não interrompe o script. */
         http_response_code(400);
         $erro = 'A questão informada para edição é inválida.';
     } else {
@@ -268,12 +308,15 @@ if (!$questao_edicao && isset($_GET['editar_questao']) && $prova && is_array($qu
             }
         }
         if (!$questao_edicao) {
+            /* Define o status HTTP 404 (recurso não encontrado). A mensagem de erro definida no fluxo
+             * será exibida no HTML; mudar o status sozinho não interrompe o script. */
             http_response_code(404);
             $erro = 'A questão solicitada não existe nesta prova.';
         }
     }
 }
 if (empty($_SESSION['csrf_provas_admin'])) {
+    /* Gera um token aleatório para proteger o formulário contra CSRF. */
     $_SESSION['csrf_provas_admin'] = bin2hex(random_bytes(32));
 }
 $csrf_token = $_SESSION['csrf_provas_admin'];
@@ -294,8 +337,8 @@ $csrf_token = $_SESSION['csrf_provas_admin'];
                 <h2>Gestão de provas</h2>
                 <p>Configure nota mínima e tentativas, depois cadastre questões de múltipla escolha para cada curso.</p>
             </div>
-            <?php if ($erro !== ''): ?>
-                <div class="alert alert-danger"><?php echo htmlspecialchars($erro, ENT_QUOTES, 'UTF-8'); ?></div>
+            <?php  if ($erro !== ''): ?>
+                <div class="alert alert-danger"><?php  echo htmlspecialchars($erro, ENT_QUOTES, 'UTF-8'); ?></div>
             <?php endif; ?>
             <?php if ($mensagem !== ''): ?>
                 <div class="alert alert-success"><?php echo htmlspecialchars($mensagem, ENT_QUOTES, 'UTF-8'); ?></div>

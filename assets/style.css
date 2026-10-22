@@ -1,4 +1,6 @@
 /* Cores e efeitos compartilhados por todo o site. */
+/* O seletor :root representa o elemento raiz do documento. As propriedades com -- são variáveis CSS
+ * compartilhadas; var(--primary), por exemplo, lê a cor definida aqui nas telas e no certificado. */
 :root {
     --primary: #185abc;
     --text-heading: #243447;
@@ -10,6 +12,8 @@
 
 /* Regras básicas para manter medidas e tipografia consistentes. */
 * {
+/* Inclui padding e bordas na largura/altura calculadas do elemento. Assim os campos dos formulários não
+ * ficam maiores que a coluna apenas por receberem preenchimento. */
     box-sizing: border-box;
 }
 
@@ -27,6 +31,8 @@ a {
 }
 
 .container {
+/* min escolhe a menor medida: o conteúdo ocupa até 1100px, mas encolhe para 94% em uma tela estreita,
+ * deixando margens nas laterais. */
     width: min(1100px, 94%);
     margin: 0 auto;
 }
@@ -50,9 +56,16 @@ a {
 }
 
 .nav-links {
+/* Organiza os links de navegação em uma linha flexível. As três regras seguintes alinham os itens,
+ * permitem quebrar a linha e definem o espaço entre os links. */
     display: flex;
+/* Alinha os itens no eixo transversal do flex; neste menu em linha, mantém os links alinhados
+ * verticalmente. */
     align-items: center;
+/* Permite que os links continuem em outra linha quando não houver espaço horizontal, evitando que o menu
+ * inteiro ultrapasse a tela. */
     flex-wrap: wrap;
+/* Define 6px entre linhas e 18px entre colunas do menu flexível, sem acrescentar margem em cada link. */
     gap: 6px 18px;
     padding-top: 10px;
     padding-bottom: 10px;
@@ -66,6 +79,8 @@ a {
 }
 
 .nav-user {
+/* No contêiner flex, absorve o espaço livre à esquerda do nome do usuário e o empurra para a direita; a
+ * regra para celular abaixo ajusta esse posicionamento. */
     margin-left: auto;
     color: #1d3557;
     font-weight: 700;
@@ -73,6 +88,8 @@ a {
 
 /* Larguras, cartões e grades usados no conteúdo das páginas. */
 main.container {
+/* calc faz uma conta de medidas CSS: 100vh é a altura da janela e 190px são descontados para reservar
+ * espaço ao redor do conteúdo principal. */
     min-height: calc(100vh - 190px);
     padding-top: 28px;
     padding-bottom: 40px;
@@ -95,10 +112,14 @@ h2 {
 }
 
 .card {
+/* Permite que um cartão encolha dentro da grade mesmo quando contém um texto comprido; sem isso, a
+ * largura mínima automática pode forçar a coluna a crescer. */
     min-width: 0;
 }
 
 .card p, .card a, .lesson-content {
+/* Autoriza quebrar textos compridos em qualquer ponto quando necessário, para que URLs e conteúdos de
+ * aula não ultrapassem os cartões. */
     overflow-wrap: anywhere;
 }
 
@@ -111,11 +132,15 @@ h2 {
 }
 
 .grid, .stat-grid, .form-grid {
+/* Ativa uma grade nas três classes deste seletor. As regras específicas de .grid, .stat-grid e .form-grid
+ * escolhem quantas colunas cabem em cada tipo de conteúdo. */
     display: grid;
     gap: 16px;
 }
 
 .grid {
+/* Cria quantas colunas couberem com auto-fit. min(100%, 240px) limita a largura mínima ao espaço
+ * disponível; minmax deixa cada coluna crescer até uma fração (1fr) do espaço restante. */
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
 }
 
@@ -132,6 +157,8 @@ h2 {
 }
 
 .stat-grid {
+/* Nos indicadores do painel, repete colunas com mínimo de 150px e divide igualmente o espaço restante
+ * entre as que couberem. */
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     margin: 20px 0;
 }
@@ -148,6 +175,8 @@ h2 {
 
 /* Campos e botões dos formulários. */
 .form-grid {
+/* No formulário, repete colunas com mínimo de 220px; quando há espaço, os campos ficam lado a lado e
+ * compartilham a largura restante. */
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
@@ -282,6 +311,8 @@ th {
 }
 
 /* Ajustes de navegação e cartões para telas pequenas. */
+/* Aplica este bloco somente quando a largura da janela é de até 600px. As regras internas adaptam os
+ * mesmos elementos para celular sem alterar o HTML. */
 @media (max-width: 600px) {
     .nav-user {
         width: 100%;

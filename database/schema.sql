@@ -3,6 +3,8 @@ CREATE TABLE usuarios (
     id SERIAL PRIMARY KEY,
     nome VARCHAR(100) NOT NULL,
     email VARCHAR(100) NOT NULL UNIQUE,
+-- A coluna guarda o hash gerado pelo PHP, não a senha original. O tamanho permite armazenar a
+-- representação textual produzida pelo algoritmo de hash.
     senha VARCHAR(255) NOT NULL,
     perfil VARCHAR(20) NOT NULL DEFAULT 'aluno'
         CHECK (perfil IN ('aluno', 'admin')),
@@ -32,6 +34,8 @@ CREATE TABLE alunos (
     criado_em TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- O índice torna o e-mail acadêmico único sem diferenciar maiúsculas e minúsculas. O vínculo entre a
+-- conta e o cadastro acadêmico também é procurado por LOWER(email) no PHP.
 CREATE UNIQUE INDEX alunos_email_unique ON alunos (LOWER(email));
 
 -- Catálogo de cursos que podem ser disponibilizados para matrícula.
@@ -47,6 +51,9 @@ CREATE TABLE cursos (
 -- Relaciona cada aluno a um curso e guarda o estado da matrícula.
 CREATE TABLE matriculas (
     id SERIAL PRIMARY KEY,
+-- A chave estrangeira obriga a matrícula a apontar para um aluno existente. ON DELETE CASCADE apaga as
+-- matrículas vinculadas se o aluno for excluído; os vínculos dependentes também podem ser apagados em
+-- sequência.
     id_aluno INT NOT NULL REFERENCES alunos(id) ON DELETE CASCADE,
     id_curso INT NOT NULL REFERENCES cursos(id) ON DELETE CASCADE,
     data_matricula DATE NOT NULL DEFAULT CURRENT_DATE,
@@ -80,6 +87,9 @@ CREATE TABLE progresso_aulas (
 -- Configuração da prova vinculada ao curso.
 CREATE TABLE provas (
     id SERIAL PRIMARY KEY,
+-- UNIQUE permite no máximo uma configuração de prova por curso, e a chave estrangeira exige um curso
+-- existente. A prova é do curso, não de uma aula específica; a conclusão das aulas obrigatórias é
+-- conferida no PHP.
     id_curso INT NOT NULL UNIQUE REFERENCES cursos(id) ON DELETE CASCADE,
     nota_minima NUMERIC(5, 2) NOT NULL DEFAULT 70
         CHECK (nota_minima BETWEEN 1 AND 100),
@@ -112,6 +122,9 @@ CREATE TABLE tentativas_prova (
     id_prova INT NOT NULL REFERENCES provas(id) ON DELETE CASCADE,
     nota NUMERIC(5, 2) NOT NULL CHECK (nota BETWEEN 0 AND 100),
     aprovada BOOLEAN NOT NULL,
+-- JSONB armazena o mapa questão → alternativa daquela tentativa como dados JSON estruturados. O PHP envia
+-- json_encode e converte o parâmetro com CAST(:respostas AS JSONB), sem acrescentar os dados à instrução
+-- SQL.
     respostas JSONB NOT NULL,
     realizada_em TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -119,8 +132,12 @@ CREATE TABLE tentativas_prova (
 -- Certificado emitido após a conclusão e seu código público de validação.
 CREATE TABLE certificados (
     id SERIAL PRIMARY KEY,
+-- UNIQUE limita a um certificado por matrícula. Excluir a matrícula também exclui o certificado por
+-- CASCADE; isso é diferente de apenas ocultar um curso ou despublicar uma prova.
     id_matricula INT NOT NULL UNIQUE REFERENCES matriculas(id) ON DELETE CASCADE,
     id_prova INT NOT NULL REFERENCES provas(id) ON DELETE CASCADE,
+-- UUID é o tipo do código público de validação gerado pelo PHP. UNIQUE impede códigos repetidos; a
+-- validade é confirmada pela existência do registro, e não apenas pelo formato do texto.
     codigo UUID NOT NULL UNIQUE,
     emitido_em TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

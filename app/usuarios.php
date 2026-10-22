@@ -1,6 +1,9 @@
 <?php
 // Restringe a gestão de contas ao perfil administrador.
+
 require_once __DIR__ . '/../includes/auth.php';
+/* A autorização é verificada no servidor antes de consultar ou alterar os cadastros. Esconder o link
+ * de administração no menu não impediria o acesso pela URL. */
 exigirAdmin();
 require_once __DIR__ . '/../includes/functions.php';
 
@@ -21,15 +24,20 @@ if ($conexao) {
 }
 
 if (empty($_SESSION['csrf_usuarios'])) {
+    /* Gera um token aleatório para proteger o formulário contra CSRF. */
     $_SESSION['csrf_usuarios'] = bin2hex(random_bytes(32));
 }
 
 // Processa edição, criação e exclusão; a transação mantém conta e aluno sincronizados.
 try {
     if (!$conexao) {
+        /* Cria uma exceção para interromper o fluxo normal e entrar no catch desta operação; aqui
+         * representa uma condição que impede continuar o gerenciamento. */
         throw new RuntimeException('Não foi possível acessar o banco de dados.');
     }
 
+    /* Lê o campo da requisição indicada e aplica um filtro. INPUT_GET aponta para a URL e
+     * FILTER_VALIDATE_INT exige um inteiro; false e null distinguem falha/ausência. */
     $idEdicao = filter_input(INPUT_GET, 'editar', FILTER_VALIDATE_INT);
     if ($idEdicao) {
         $stmt = $conexao->prepare(
@@ -41,11 +49,14 @@ try {
 
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Confere o token antes de aceitar qualquer alteração enviada pelo navegador.
+
         $token = $_POST['csrf_token'] ?? '';
+        /* Confere o token CSRF antes de processar o formulário. */
         if (!is_string($token) || !hash_equals($_SESSION['csrf_usuarios'], $token)) {
             $mensagem = 'A sessão expirou. Atualize a página e tente novamente.';
         } else {
             $acao = $_POST['acao'] ?? '';
+
             $id = filter_var($_POST['id'] ?? '', FILTER_VALIDATE_INT);
 
             if ($acao === 'excluir' && $id) {
@@ -55,8 +66,10 @@ try {
                 );
                 $stmt->execute(['id' => $id]);
                 $alvo = $stmt->fetch();
+
                 $admins = (int) $conexao->query(
                     "SELECT COUNT(*) FROM usuarios WHERE perfil = 'admin'"
+
                 )->fetchColumn();
 
                 if (!$alvo) {
@@ -72,6 +85,9 @@ try {
                 }
             } elseif ($acao === 'salvar') {
                 // Valida os campos da conta antes de consultar possíveis duplicidades.
+                /* O ternário condição ? valor_se_verdadeiro : valor_se_falso escolhe um dos dois
+                 * valores. Já a forma abreviada valor ?: alternativa usa a alternativa para qualquer
+                 * valor considerado falso. */
                 $id = $id ?: null;
                 $nome = trim($_POST['nome'] ?? '');
                 $email = strtolower(trim($_POST['email'] ?? ''));
@@ -102,6 +118,7 @@ try {
 
                     $admins = (int) $conexao->query(
                         "SELECT COUNT(*) FROM usuarios WHERE perfil = 'admin'"
+
                     )->fetchColumn();
 
                     if ($existente && (!$id || (int) $existente['id'] !== (int) $id)) {
@@ -122,6 +139,8 @@ try {
                         $aluno = $stmt->fetch();
 
                         try {
+                            /* Inicia a transação para salvar todas as alterações juntas ou desfazê-las
+                             * em caso de erro. */
                             $conexao->beginTransaction();
                             if ($id) {
                                 $sql = $senha === ''
@@ -135,6 +154,7 @@ try {
                                     'id' => $id
                                 ];
                                 if ($senha !== '') {
+                                    /* Armazena somente o hash da senha, nunca a senha em texto puro. */
                                     $dados['senha'] = password_hash($senha, PASSWORD_DEFAULT);
                                 }
                                 $salvo = $stmt->execute($dados);
@@ -167,6 +187,7 @@ try {
                                 throw new RuntimeException('Não foi possível salvar a conta.');
                             }
 
+                            /* Confirma as alterações e libera os bloqueios da transação. */
                             $conexao->commit();
                             $mensagem = $id ? 'Conta atualizada.' : 'Conta criada.';
                             if ($id && (int) $id === (int) $_SESSION['user_id']) {
@@ -175,13 +196,17 @@ try {
                             }
                             $usuarioEdicao = null;
                         } catch (PDOException $e) {
+                            /* Só desfaz a operação se a transação ainda estiver ativa. */
                             if ($conexao->inTransaction()) {
+                                /* Desfaz as alterações não confirmadas, se houver uma transação ativa. */
                                 $conexao->rollBack();
                             }
                             error_log('Erro ao salvar conta administrativa: ' . $e->getMessage());
                             $mensagem = 'Não foi possível salvar a conta. Confira os dados e tente novamente.';
                         } catch (RuntimeException $e) {
+                            /* Só desfaz a operação se a transação ainda estiver ativa. */
                             if ($conexao->inTransaction()) {
+                                /* Desfaz as alterações não confirmadas, se houver uma transação ativa. */
                                 $conexao->rollBack();
                             }
                             $mensagem = 'Não foi possível salvar a conta. Confira os dados e tente novamente.';
@@ -219,8 +244,8 @@ try {
         <h1>Usuários</h1>
         <p>Cadastre contas e escolha se terão acesso de aluno ou administrador.</p>
 
-        <?php if ($mensagem !== ''): ?>
-            <div class="alert"><?php echo htmlspecialchars($mensagem, ENT_QUOTES, 'UTF-8'); ?></div>
+        <?php  if ($mensagem !== ''): ?>
+            <div class="alert"><?php  echo htmlspecialchars($mensagem, ENT_QUOTES, 'UTF-8'); ?></div>
         <?php endif; ?>
 
         <section class="admin-card">

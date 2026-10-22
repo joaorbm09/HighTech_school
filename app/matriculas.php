@@ -1,26 +1,37 @@
 <?php 
 
 // A administração de matrículas só pode ser acessada por administradores.
+
 require_once __DIR__ . '/../includes/auth.php';
+/* A autorização é verificada no servidor antes de consultar ou alterar os cadastros. Esconder o link
+ * de administração no menu não impediria o acesso pela URL. */
 exigirAdmin();
 require_once __DIR__ . '/../includes/functions.php';
 
 $mensagem = '';
 // O token evita que outro site envie alterações usando a sessão do administrador.
 if (empty($_SESSION['csrf_matriculas'])) {
+    /* Gera um token aleatório para proteger o formulário contra CSRF. */
     $_SESSION['csrf_matriculas'] = bin2hex(random_bytes(32));
 }
 
 // Trata o cancelamento de uma matrícula solicitado pela tabela.
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao']) && $_POST['acao'] === 'cancelar') {
     $token = $_POST['csrf_token'] ?? '';
+    /* Confere o token CSRF antes de processar o formulário. */
     if (!hash_equals($_SESSION['csrf_matriculas'], (string)$token)) {
         $mensagem = '<div class="alert alert-danger">Falha na validação de segurança (token expirado). Tente novamente.</div>';
     } else {
         $id_cancelar = filter_var($_POST['id'] ?? '', FILTER_VALIDATE_INT);
         if ($id_cancelar && $conexao) {
             try {
+                /* Apesar do nome cancelar na interface, esta instrução exclui fisicamente a matrícula.
+                 * As chaves estrangeiras ON DELETE CASCADE do schema também podem remover progresso,
+                 * tentativas e certificado relacionados. */
                 $stmt = $conexao->prepare('DELETE FROM matriculas WHERE id = :id');
+                /* Lê quantas linhas a última alteração afetou. Neste teste, sucesso de execute()
+                 * sozinho não prova que o ID procurado realmente encontrou um registro. */
                 if ($stmt->execute(['id' => $id_cancelar]) && $stmt->rowCount() > 0) {
                     $mensagem = '<div class="alert alert-success">Matrícula cancelada com sucesso!</div>';
                 } else {
@@ -59,6 +70,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['acao'] ?? '') !== 'cancela
             } catch (PDOException $e) {
                 error_log('Erro ao criar matrícula: ' . $e->getMessage());
                 $salvo = false;
+                /* O código 23505 indica violação de unicidade, como e-mail ou ordem de questão
+                 * duplicados. */
                 if ($e->getCode() === '23505') {
                     $mensagem = '<div class="alert alert-warning">Este aluno já possui matrícula cadastrada neste curso.</div>';
                 }
@@ -84,6 +97,7 @@ if ($conexao) {
         $alunos = $conexao->query('SELECT id, nome, email FROM alunos ORDER BY nome')->fetchAll();
         $cursos = $conexao->query('SELECT id, nome FROM cursos ORDER BY nome')->fetchAll();
         $matriculas = $conexao->query(
+
             'SELECT m.id, m.data_matricula, m.status,
                     a.nome AS aluno_nome, a.email AS aluno_email, a.turma,
                     c.nome AS curso_nome, c.categoria AS curso_categoria
@@ -132,7 +146,7 @@ if ($conexao) {
             <br>
             
             <form action="matriculas.php" method="post">
-                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_matriculas'], ENT_QUOTES, 'UTF-8'); ?>">
+                <input type="hidden" name="csrf_token" value="<?php  echo htmlspecialchars($_SESSION['csrf_matriculas'], ENT_QUOTES, 'UTF-8'); ?>">
                 
                 <div class="form-grid">
                     
@@ -142,7 +156,7 @@ if ($conexao) {
                         <select name="id_aluno" id="id_aluno" required>
                             
                             <option value="">-- Escolha um Aluno --</option>
-                            <?php foreach ($alunos as $aluno): ?>
+                            <?php  foreach ($alunos as $aluno): ?>
 
 <option value="<?php echo $aluno['id']; ?>">
                                     <?php echo htmlspecialchars($aluno['nome']); ?> (<?php echo htmlspecialchars($aluno['email']); ?>)

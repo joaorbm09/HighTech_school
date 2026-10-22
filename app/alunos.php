@@ -1,7 +1,10 @@
 <?php 
 
 // A tela de cadastro acadêmico é exclusiva para administradores.
+
 require_once __DIR__ . '/../includes/auth.php';
+/* A autorização é verificada no servidor antes de consultar ou alterar os cadastros. Esconder o link
+ * de administração no menu não impediria o acesso pela URL. */
 exigirAdmin();
 require_once __DIR__ . '/../includes/functions.php';
 
@@ -9,12 +12,15 @@ $mensagem = '';
 $aluno_edicao = null;
 // Cria um token para validar os formulários que alteram dados de alunos.
 if (empty($_SESSION['csrf_alunos'])) {
+    /* Gera um token aleatório para proteger o formulário contra CSRF. */
     $_SESSION['csrf_alunos'] = bin2hex(random_bytes(32));
 }
 
 // Remove o aluno selecionado depois de conferir o token do formulário.
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao']) && $_POST['acao'] === 'excluir') {
     $token = $_POST['csrf_token'] ?? '';
+    /* Confere o token CSRF antes de processar o formulário. */
     if (!hash_equals($_SESSION['csrf_alunos'], (string)$token)) {
         $mensagem = '<div class="alert alert-danger">Falha na validação de segurança (token expirado). Tente novamente.</div>';
     } else {
@@ -22,7 +28,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao']) && $_POST['ac
         if ($id_excluir && $conexao) {
             try {
                 // A consulta preparada envia o ID como parâmetro, sem juntar texto recebido à instrução SQL.
+
                 $stmt = $conexao->prepare('DELETE FROM alunos WHERE id = :id');
+                /* Lê quantas linhas a última alteração afetou. Neste teste, sucesso de execute()
+                 * sozinho não prova que o ID procurado realmente encontrou um registro. */
                 if ($stmt->execute(['id' => $id_excluir]) && $stmt->rowCount() > 0) {
                     $mensagem = '<div class="alert alert-success">Aluno excluído com sucesso!</div>';
                 } else {
@@ -63,6 +72,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['acao'] ?? '') !== 'excluir
         $nasc_raw = trim($_POST['nasc'] ?? '');
         $nasc_erro = '';
         // A função verifica a data e a idade permitida antes de salvar qualquer informação.
+        /* Esta chamada recebe dois resultados: $nasc guarda data/null/false; a variável de erro
+         * passada no segundo argumento recebe a explicação por referência, conforme a declaração da
+         * função. */
         $nasc = validarDataNascimento($nasc_raw, $nasc_erro);
         if ($nasc === false) {
             $mensagem = '<div class="alert alert-warning">' . htmlspecialchars($nasc_erro) . '</div>';
@@ -82,10 +94,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['acao'] ?? '') !== 'excluir
                     );
                     $salvo = $stmt->execute([
                         'nome' => trim($nome),
+                        /* O ternário envia o CPF preenchido ou null quando vazio. null representa
+                         * ausência do dado e evita salvar uma string vazia como CPF de vários alunos.
+                         * O ternário condição ? valor_se_verdadeiro : valor_se_falso escolhe um dos
+                         * dois valores. Já a forma abreviada valor ?: alternativa usa a alternativa
+                         * para qualquer valor considerado falso. */
                         'cpf' => trim($cpf) !== '' ? trim($cpf) : null,
+                        /* Remove espaços das extremidades e converte o e-mail para minúsculas antes de
+                         * gravar. O projeto usa esse e-mail para associar conta de acesso e cadastro
+                         * acadêmico. */
                         'email' => strtolower(trim($email)),
                         'turma' => trim($turma),
                         'nascimento' => $nasc,
+                        /* O select envia o texto true ou false. A comparação transforma o texto
+                         * recebido em um booleano para o parâmetro ativo; não se usa (bool) porque a
+                         * string não vazia false também seria verdadeira no PHP. */
                         'ativo' => $ativo === 'true',
                         'id' => (int) $id
                     ]);
@@ -103,10 +126,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['acao'] ?? '') !== 'excluir
                     );
                     $salvo = $stmt->execute([
                         'nome' => trim($nome),
+                        /* O ternário envia o CPF preenchido ou null quando vazio. null representa
+                         * ausência do dado e evita salvar uma string vazia como CPF de vários alunos. */
                         'cpf' => trim($cpf) !== '' ? trim($cpf) : null,
+                        /* Remove espaços das extremidades e converte o e-mail para minúsculas antes de
+                         * gravar. O projeto usa esse e-mail para associar conta de acesso e cadastro
+                         * acadêmico. */
                         'email' => strtolower(trim($email)),
                         'turma' => trim($turma),
                         'nascimento' => $nasc,
+                        /* O select envia o texto true ou false. A comparação transforma o texto
+                         * recebido em um booleano para o parâmetro ativo; não se usa (bool) porque a
+                         * string não vazia false também seria verdadeira no PHP. */
                         'ativo' => $ativo === 'true'
                     ]);
                     if ($salvo) {
@@ -117,6 +148,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['acao'] ?? '') !== 'excluir
                 }
             } catch (PDOException $e) {
                 error_log('Erro ao salvar aluno: ' . $e->getMessage());
+                /* O código 23505 indica violação de unicidade, como e-mail ou ordem de questão
+                 * duplicados. */
                 if ($e->getCode() === '23505') {
                     $mensagem = '<div class="alert alert-warning">Já existe um aluno cadastrado com este e-mail ou CPF.</div>';
                 } else {
@@ -142,7 +175,12 @@ if ($conexao) {
         $mensagem = '<div class="alert alert-danger">Não foi possível carregar os alunos. Verifique a conexão com o banco e se a tabela de alunos foi criada.</div>';
     }
 }
+/* strtotime calcula uma data relativa a hoje; date a formata para o input date. Este max ajuda o
+ * navegador a exigir 14 anos, mas a validação real também é feita por validarDataNascimento no
+ * servidor. */
 $data_max_nasc = date('Y-m-d', strtotime('-14 years'));
+/* Calcula a data de 100 anos atrás para o min do campo. Esses limites da interface ajudam o
+ * preenchimento e não substituem as regras verificadas pelo PHP. */
 $data_min_nasc = date('Y-m-d', strtotime('-100 years'));
 // Esses limites ajudam o navegador a aceitar somente datas entre 14 e 100 anos atrás.
 ?>
@@ -178,7 +216,7 @@ $data_min_nasc = date('Y-m-d', strtotime('-100 years'));
             
             <form action="alunos.php" method="post">
                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_alunos'], ENT_QUOTES, 'UTF-8'); ?>">
-                <?php if ($aluno_edicao): ?>
+                <?php /* O campo oculto ID só é enviado quando há um cadastro em edição. */ if ($aluno_edicao): ?>
 
 <input type="hidden" name="id" value="<?php echo htmlspecialchars($aluno_edicao['id']); ?>">
                 <?php endif; ?>
@@ -218,6 +256,9 @@ $data_min_nasc = date('Y-m-d', strtotime('-100 years'));
                         <label for="ativo">Status Ativo:</label>
                         <select name="ativo" id="ativo">
                             <?php
+                            /* No cadastro novo, o padrão é ativo. Na edição, reconhece os formatos
+                             * true, t e 1 que podem representar o booleano vindo do banco; o resultado
+                             * controla qual option terá selected. */
                             $isAtivo = isset($aluno_edicao['ativo']) ? ($aluno_edicao['ativo'] === true || $aluno_edicao['ativo'] === 't' || $aluno_edicao['ativo'] == 1) : true;
                             ?>
                             
@@ -229,7 +270,7 @@ $data_min_nasc = date('Y-m-d', strtotime('-100 years'));
                 </div>
 
 <button type="submit" class="btn btn-primary"><?php echo $aluno_edicao ? 'Salvar Alterações' : 'Cadastrar Aluno'; ?></button>
-                <?php if ($aluno_edicao): ?>
+                <?php /* O campo oculto ID só é enviado quando há um cadastro em edição. */ if ($aluno_edicao): ?>
                     
                     <a href="alunos.php" class="btn btn-outline">Cancelar</a>
                 <?php endif; ?>

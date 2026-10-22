@@ -1,11 +1,16 @@
 <?php
 // Área do aluno para consultar aulas e marcar as aulas concluídas.
+
 require_once __DIR__ . '/../includes/auth.php';
+/* Exige uma identidade autenticada antes de continuar. Nas telas de aulas e provas, a matrícula desse
+ * aluno ainda precisa ser verificada separadamente. */
 exigirLogin();
 require_once __DIR__ . '/../includes/functions.php';
 
 $usuario = obterUsuarioLogado();
 // O sistema precisa saber qual aluno está logado para buscar seus dados acadêmicos.
+/* A conta de acesso e o cadastro acadêmico ficam em tabelas distintas; o projeto associa os dois pelo
+ * e-mail. É o ID acadêmico encontrado aqui que será usado nas matrículas. */
 $aluno = buscarAlunoPorEmail($conexao, $usuario['email']);
 $erro = '';
 $mensagem = '';
@@ -14,9 +19,13 @@ $aulas = [];
 
 // Lê o curso escolhido pela pessoa.
 // Se vier pela URL (?id_curso=...) ou por um POST do formulário, o sistema trata os dois casos.
+
 $id_curso_raw = $_SERVER['REQUEST_METHOD'] === 'POST'
+    /* O ternário condição ? valor_se_verdadeiro : valor_se_falso escolhe um dos dois valores. Já a
+     * forma abreviada valor ?: alternativa usa a alternativa para qualquer valor considerado falso. */
     ? ($_POST['id_curso'] ?? '')
     : ($_GET['id_curso'] ?? '');
+
 $id_curso = filter_var(
     is_string($id_curso_raw) || is_int($id_curso_raw) ? $id_curso_raw : '',
     FILTER_VALIDATE_INT,
@@ -29,31 +38,44 @@ $id_curso = filter_var(
 // 3) o curso informado é válido;
 // 4) existe matrícula ativa para esse aluno e curso.
 if (!$conexao) {
+    /* Define o status HTTP 503 (serviço temporariamente indisponível). A mensagem de erro definida no
+     * fluxo será exibida no HTML; mudar o status sozinho não interrompe o script. */
     http_response_code(503);
     $erro = 'Não foi possível conectar ao sistema. Tente novamente mais tarde.';
 } elseif (!$aluno) {
+    /* Define o status HTTP 403 (acesso recusado). A mensagem de erro definida no fluxo será exibida no
+     * HTML; mudar o status sozinho não interrompe o script. */
     http_response_code(403);
     $erro = 'Não foi possível localizar seu cadastro acadêmico. Acesse Meu Painel para sincronizá-lo ou fale com a administração.';
 } elseif ($id_curso === false) {
+    /* Define o status HTTP 400 (pedido inválido). A mensagem de erro definida no fluxo será exibida no
+     * HTML; mudar o status sozinho não interrompe o script. */
     http_response_code(400);
     $erro = 'O curso informado é inválido.';
 } else {
     $matricula = obterMatriculaAtivaAlunoCurso($conexao, $aluno['id'], $id_curso);
     if ($matricula === null) {
+        /* Define o status HTTP 500 (falha interna ao processar os dados). A mensagem de erro definida
+         * no fluxo será exibida no HTML; mudar o status sozinho não interrompe o script. */
         http_response_code(500);
         $erro = 'Não foi possível validar sua matrícula no momento.';
     } elseif (!$matricula) {
+        /* Define o status HTTP 403 (acesso recusado). A mensagem de erro definida no fluxo será
+         * exibida no HTML; mudar o status sozinho não interrompe o script. */
         http_response_code(403);
         $erro = 'Você ainda não tem matrícula ativa neste curso. Acesse Meu Painel, faça sua matrícula e volte para ver as aulas.';
     }
 }
 
 // Quando o aluno marca uma aula como concluída, o sistema recebe um POST.
-// A validação do token ajuda a impedir envio falso ou manipulado por fora da página.
+// A comparação do token ajuda a recusar pedidos forjados usando a sessão; os IDs e a matrícula precisam de validação própria, realizada a seguir.
 if ($matricula && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $token_enviado = $_POST['csrf_token'] ?? '';
     $token_sessao = $_SESSION['csrf_aulas'] ?? '';
+    /* Confere o token CSRF antes de processar o formulário. */
     if (!is_string($token_enviado) || $token_sessao === '' || !hash_equals($token_sessao, $token_enviado)) {
+        /* Define o status HTTP 400 (pedido inválido). A mensagem de erro definida no fluxo será
+         * exibida no HTML; mudar o status sozinho não interrompe o script. */
         http_response_code(400);
         $erro = 'A solicitação expirou ou não pôde ser validada. Atualize a página e tente novamente.';
     } else {
@@ -63,6 +85,8 @@ if ($matricula && $_SERVER['REQUEST_METHOD'] === 'POST') {
             ['options' => ['min_range' => 1]]
         );
         if ($id_aula === false) {
+            /* Define o status HTTP 400 (pedido inválido). A mensagem de erro definida no fluxo será
+             * exibida no HTML; mudar o status sozinho não interrompe o script. */
             http_response_code(400);
             $erro = 'A aula informada é inválida.';
         } else {
@@ -73,6 +97,9 @@ if ($matricula && $_SERVER['REQUEST_METHOD'] === 'POST') {
             } elseif ($resultado === false) {
                 $erro = 'Não foi possível registrar a conclusão desta aula. Verifique se ela pertence a este curso e tente novamente.';
             } else {
+                /* Define o status HTTP 500 (falha interna ao processar os dados). A mensagem de erro
+                 * definida no fluxo será exibida no HTML; mudar o status sozinho não interrompe o
+                 * script. */
                 http_response_code(500);
                 $erro = 'Ocorreu um erro ao registrar sua conclusão. Tente novamente mais tarde.';
             }
@@ -83,10 +110,13 @@ if ($matricula && $_SERVER['REQUEST_METHOD'] === 'POST') {
 // Depois de validar a matrícula, o script busca as aulas publicadas e o estado de conclusão de cada uma.
 if ($matricula) {
     if (empty($_SESSION['csrf_aulas'])) {
+        /* Gera um token aleatório para proteger o formulário contra CSRF. */
         $_SESSION['csrf_aulas'] = bin2hex(random_bytes(32));
     }
     $aulas = listarAulasDaMatricula($conexao, $matricula['matricula_id']);
     if ($aulas === false) {
+        /* Define o status HTTP 500 (falha interna ao processar os dados). A mensagem de erro definida
+         * no fluxo será exibida no HTML; mudar o status sozinho não interrompe o script. */
         http_response_code(500);
         $erro = 'Não foi possível carregar as aulas deste curso no momento.';
     }
@@ -106,8 +136,8 @@ if ($matricula) {
     <main class="container">
         <p style="margin: 1rem 0;"><a href="meu_painel.php#meus-cursos" class="btn btn-outline">Voltar ao meu painel</a></p>
 
-        <?php if ($erro !== ''): ?>
-            <div class="alert alert-danger"><?php echo htmlspecialchars($erro, ENT_QUOTES, 'UTF-8'); ?></div>
+        <?php  if ($erro !== ''): ?>
+            <div class="alert alert-danger"><?php  echo htmlspecialchars($erro, ENT_QUOTES, 'UTF-8'); ?></div>
         <?php elseif ($matricula): ?>
             <section class="admin-card">
                 <div class="section-header">
@@ -127,7 +157,7 @@ if ($matricula) {
                         <?php foreach ($aulas as $aula): ?>
                             <article class="card">
                                 <div>
-                                    <span class="badge">Aula <?php echo (int) $aula['ordem']; ?></span>
+                                    <span class="badge">Aula <?php  echo (int) $aula['ordem']; ?></span>
                                     <?php if ($aula['concluida']): ?>
                                         <span class="badge badge-success">Concluída</span>
                                     <?php else: ?>
@@ -135,7 +165,8 @@ if ($matricula) {
                                     <?php endif; ?>
                                     <h3><?php echo htmlspecialchars($aula['titulo'], ENT_QUOTES, 'UTF-8'); ?></h3>
                                     <?php if (!empty($aula['descricao'])): ?>
-                                        <p class="lesson-content"><?php echo nl2br(htmlspecialchars($aula['descricao'], ENT_QUOTES, 'UTF-8')); ?></p>
+                                        <p class="lesson-content"><?php /* Converte quebras de linha em tags br. O texto é escapado com htmlspecialchars antes, para que o
+ * conteúdo da aula não injete tags HTML. */ echo nl2br(htmlspecialchars($aula['descricao'], ENT_QUOTES, 'UTF-8')); ?></p>
                                     <?php endif; ?>
                                     <?php if (!empty($aula['conteudo'])): ?>
                                         <div class="lesson-content">
@@ -144,9 +175,11 @@ if ($matricula) {
                                     <?php endif; ?>
                                     <?php
                                         $video_url = filter_var($aula['video_url'] ?? '', FILTER_VALIDATE_URL);
+                                        /* Extrai partes da URL; PHP_URL_SCHEME pede o protocolo. O código
+                                         * aceita apenas http/https antes de montar o link da aula. */
                                         $video_scheme = $video_url ? strtolower((string) parse_url($video_url, PHP_URL_SCHEME)) : '';
                                     ?>
-                                    <?php if ($video_url && in_array($video_scheme, ['http', 'https'], true)): ?>
+                                    <?php  if ($video_url && in_array($video_scheme, ['http', 'https'], true)): ?>
                                         <p style="margin-top: 1rem;">
                                             <a href="<?php echo htmlspecialchars($video_url, ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener noreferrer">Abrir material da aula</a>
                                         </p>

@@ -1,6 +1,7 @@
-<?php 
+<?php
 
 // Carrega autenticação e conexão compartilhadas; esta é a página pública dos cursos.
+
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/functions.php';
 
@@ -16,11 +17,13 @@ if (!$conexao && $mensagem === '') {
 }
 
 if (empty($_SESSION['csrf_inscricao'])) {
+    /* Gera um token aleatório para proteger o formulário contra CSRF. */
     $_SESSION['csrf_inscricao'] = bin2hex(random_bytes(32));
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['inscrever'])) {
     $token = $_POST['csrf_token'] ?? '';
+    /* Confere o token CSRF antes de processar o formulário. */
     if (!hash_equals($_SESSION['csrf_inscricao'] ?? '', (string)$token)) {
         $mensagem = '<div class="alert alert-danger">Falha na validação de segurança (token expirado). Atualize a página e tente novamente.</div>';
     } else {
@@ -31,51 +34,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['inscrever'])) {
         $id_curso = $_POST['id_curso'] ?? '';
         $turma = 'HT-2026';
         $nasc_input = trim($_POST['nasc'] ?? '');
-    $nasc_erro = '';
-    $nasc = validarDataNascimento($nasc_input, $nasc_erro);
+        $nasc_erro = '';
+        /* Esta chamada recebe dois resultados: $nasc guarda data/null/false; a variável de erro
+         * passada no segundo argumento recebe a explicação por referência, conforme a declaração da
+         * função. */
+        $nasc = validarDataNascimento($nasc_input, $nasc_erro);
 
-// Cria ou localiza o cadastro do aluno e registra a matrícula no curso.
-if ($nasc === false) {
-        $mensagem = '<div class="alert alert-warning">' . htmlspecialchars($nasc_erro) . '</div>';
-    } else if ($cpf !== '' && !validarCpf($cpf)) {
-        $mensagem = '<div class="alert alert-warning">CPF inválido. Digite 11 números, sem pontos ou traços.</div>';
-    } else if (!$conexao) {
-        $mensagem = '<div class="alert alert-danger">Sem conexão com o banco de dados. Tente novamente mais tarde.</div>';
-    } else if (!empty($nome) && !empty($email) && !empty($id_curso)) {
-        $aluno_db = buscarAlunoPorEmail($conexao, $email);
-        $id_aluno = null;
+        // Cria ou localiza o cadastro do aluno e registra a matrícula no curso.
+        if ($nasc === false) {
+            $mensagem = '<div class="alert alert-warning">' . htmlspecialchars($nasc_erro) . '</div>';
+        } else if ($cpf !== '' && !validarCpf($cpf)) {
+            $mensagem = '<div class="alert alert-warning">CPF inválido. Digite 11 números, sem pontos ou traços.</div>';
+        } else if (!$conexao) {
+            $mensagem = '<div class="alert alert-danger">Sem conexão com o banco de dados. Tente novamente mais tarde.</div>';
+        } else if (!empty($nome) && !empty($email) && !empty($id_curso)) {
+            $aluno_db = buscarAlunoPorEmail($conexao, $email);
+            $id_aluno = null;
 
-        if ($aluno_db) {
-            $id_aluno = $aluno_db['id'];
-        } else {
-            if (cadastrarAluno($conexao, $nome, $cpf, $email, $turma, $nasc, true)) {
-                $novo_aluno = buscarAlunoPorEmail($conexao, $email);
-                $id_aluno = $novo_aluno['id'] ?? null;
-            }
-        }
-
-if ($id_aluno) {
-            $resultado_matricula = matricularAlunoEmCursoAtivo($conexao, $id_aluno, $id_curso);
-
-            if ($resultado_matricula === 'created') {
-                $tem_usuario = buscarUsuarioPorEmail($conexao, $email);
-                if ($tem_usuario) {
-                    $mensagem = '<div class="alert alert-success"><strong>Matrícula realizada.</strong> <a href="login/login.php">Entre para acessar suas aulas.</a></div>';
-                } else {
-                    $mensagem = '<div class="alert alert-success"><strong>Matrícula realizada.</strong> <a href="login/cadastrar.php">Crie uma conta para acessar as aulas.</a></div>';
-                }
-            } elseif ($resultado_matricula === 'already_enrolled') {
-                $mensagem = '<div class="alert alert-warning">Você já possui uma matrícula ativa neste curso. Acesse seu <a href="app/meu_painel.php" style="font-weight: 700; text-decoration: underline;">Painel do Aluno</a> para ver as aulas.</div>';
-            } elseif ($resultado_matricula === 'course_unavailable') {
-                $mensagem = '<div class="alert alert-warning">Este curso não está disponível para novas matrículas no momento.</div>';
+            if ($aluno_db) {
+                $id_aluno = $aluno_db['id'];
             } else {
-                $mensagem = '<div class="alert alert-danger">Erro ao realizar inscrição no curso. Tente novamente mais tarde.</div>';
+                if (cadastrarAluno($conexao, $nome, $cpf, $email, $turma, $nasc, true)) {
+                    $novo_aluno = buscarAlunoPorEmail($conexao, $email);
+                    $id_aluno = $novo_aluno['id'] ?? null;
+                }
+            }
+
+            if ($id_aluno) {
+                $resultado_matricula = matricularAlunoEmCursoAtivo($conexao, $id_aluno, $id_curso);
+
+                if ($resultado_matricula === 'created') {
+                    $tem_usuario = buscarUsuarioPorEmail($conexao, $email);
+                    if ($tem_usuario) {
+                        $mensagem = '<div class="alert alert-success"><strong>Matrícula realizada.</strong> <a href="login/login.php">Entre para acessar suas aulas.</a></div>';
+                    } else {
+                        $mensagem = '<div class="alert alert-success"><strong>Matrícula realizada.</strong> <a href="login/cadastrar.php">Crie uma conta para acessar as aulas.</a></div>';
+                    }
+                } elseif ($resultado_matricula === 'already_enrolled') {
+                    $mensagem = '<div class="alert alert-warning">Você já possui uma matrícula ativa neste curso. Acesse seu <a href="app/meu_painel.php" style="font-weight: 700; text-decoration: underline;">Painel do Aluno</a> para ver as aulas.</div>';
+                } elseif ($resultado_matricula === 'course_unavailable') {
+                    $mensagem = '<div class="alert alert-warning">Este curso não está disponível para novas matrículas no momento.</div>';
+                } else {
+                    $mensagem = '<div class="alert alert-danger">Erro ao realizar inscrição no curso. Tente novamente mais tarde.</div>';
+                }
+            } else {
+                $mensagem = '<div class="alert alert-danger">Erro ao registrar os dados do aluno. Tente novamente.</div>';
             }
         } else {
-            $mensagem = '<div class="alert alert-danger">Erro ao registrar os dados do aluno. Tente novamente.</div>';
-        }
-    } else {
-        $mensagem = '<div class="alert alert-warning">Por favor, preencha todos os campos obrigatórios.</div>';
+            $mensagem = '<div class="alert alert-warning">Por favor, preencha todos os campos obrigatórios.</div>';
         }
     }
 }
@@ -95,7 +101,12 @@ if ($conexao) {
         }
     }
 }
+/* strtotime calcula uma data relativa a hoje; date a formata para o input date. Este max ajuda o
+ * navegador a exigir 14 anos, mas a validação real também é feita por validarDataNascimento no
+ * servidor. */
 $data_max_nasc = date('Y-m-d', strtotime('-14 years'));
+/* Calcula a data de 100 anos atrás para o min do campo. Esses limites da interface ajudam o
+ * preenchimento e não substituem as regras verificadas pelo PHP. */
 $data_min_nasc = date('Y-m-d', strtotime('-100 years'));
 ?>
 
@@ -138,7 +149,7 @@ $data_min_nasc = date('Y-m-d', strtotime('-100 years'));
             </div>
 
 <div class="grid">
-                <?php if (empty($cursos)): ?>
+                <?php  if (empty($cursos)): ?>
                     
                     <p>Nenhum curso cadastrado no momento.</p>
                 <?php else: ?>

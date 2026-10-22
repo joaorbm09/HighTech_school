@@ -1,20 +1,26 @@
 <?php 
 
 // Restringe esta tela a administradores; operações simples ficam nesta página.
+
 require_once __DIR__ . '/../includes/auth.php';
+/* A autorização é verificada no servidor antes de consultar ou alterar os cadastros. Esconder o link
+ * de administração no menu não impediria o acesso pela URL. */
 exigirAdmin();
 require_once __DIR__ . '/../includes/functions.php';
 
 $mensagem = '';
 $curso_edicao = null;
-// Token CSRF confirma que as alterações vieram de um formulário desta sessão.
+// O token CSRF compara o valor enviado ao guardado nesta sessão, ajudando a recusar envios forjados; não é uma garantia isolada da origem do pedido.
 if (empty($_SESSION['csrf_cursos'])) {
+    /* Gera um token aleatório para proteger o formulário contra CSRF. */
     $_SESSION['csrf_cursos'] = bin2hex(random_bytes(32));
 }
 
 // Trata a exclusão de um curso solicitada pelo formulário.
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao']) && $_POST['acao'] === 'excluir') {
     $token = $_POST['csrf_token'] ?? '';
+    /* Confere o token CSRF antes de processar o formulário. */
     if (!hash_equals($_SESSION['csrf_cursos'], (string)$token)) {
         $mensagem = '<div class="alert alert-danger">Falha na validação de segurança (token expirado). Tente novamente.</div>';
     } else {
@@ -22,6 +28,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao']) && $_POST['ac
         if ($id_excluir && $conexao) {
             try {
                 $stmt = $conexao->prepare('DELETE FROM cursos WHERE id = :id');
+                /* Lê quantas linhas a última alteração afetou. Neste teste, sucesso de execute()
+                 * sozinho não prova que o ID procurado realmente encontrou um registro. */
                 if ($stmt->execute(['id' => $id_excluir]) && $stmt->rowCount() > 0) {
                     $mensagem = '<div class="alert alert-success">Curso excluído com sucesso!</div>';
                 } else {
@@ -75,6 +83,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['acao'] ?? '') !== 'excluir
                         'categoria' => $categoria,
                         'descricao' => trim($descricao),
                         'carga_horaria' => (int) $carga_horaria,
+                        /* O select envia o texto true ou false. A comparação transforma o texto
+                         * recebido em um booleano para o parâmetro ativo; não se usa (bool) porque a
+                         * string não vazia false também seria verdadeira no PHP. */
                         'ativo' => $ativo === 'true',
                         'id' => (int) $id
                     ]);
@@ -94,6 +105,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['acao'] ?? '') !== 'excluir
                         'categoria' => $categoria,
                         'descricao' => trim($descricao),
                         'carga_horaria' => (int) $carga_horaria,
+                        /* O select envia o texto true ou false. A comparação transforma o texto
+                         * recebido em um booleano para o parâmetro ativo; não se usa (bool) porque a
+                         * string não vazia false também seria verdadeira no PHP. */
                         'ativo' => $ativo === 'true'
                     ]);
                     if ($salvo) {
@@ -104,6 +118,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['acao'] ?? '') !== 'excluir
                 }
             } catch (PDOException $e) {
                 error_log('Erro ao salvar curso: ' . $e->getMessage());
+                /* O código 23505 indica violação de unicidade, como e-mail ou ordem de questão
+                 * duplicados. */
                 if ($e->getCode() === '23505') {
                     $mensagem = '<div class="alert alert-warning">Já existe um curso cadastrado com este nome.</div>';
                 } else {
@@ -161,13 +177,14 @@ if ($conexao) {
 
 <div class="admin-card">
 
-            <h3><?php echo $curso_edicao ? 'Editar Curso (ID: ' . htmlspecialchars($curso_edicao['id']) . ')' : 'Adicionar / editar curso'; ?></h3>
+            <h3><?php /* O ternário condição ? valor_se_verdadeiro : valor_se_falso escolhe um dos dois valores. Já a forma
+ * abreviada valor ?: alternativa usa a alternativa para qualquer valor considerado falso. */ echo $curso_edicao ? 'Editar Curso (ID: ' . htmlspecialchars($curso_edicao['id']) . ')' : 'Adicionar / editar curso'; ?></h3>
             <p>Use este formulário para cadastrar um novo curso ou alterar um curso existente.</p>
             <br>
             
             <form action="cursos.php" method="post">
                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_cursos'], ENT_QUOTES, 'UTF-8'); ?>">
-                <?php if ($curso_edicao): ?>
+                <?php  if ($curso_edicao): ?>
 
 <input type="hidden" name="id" value="<?php echo htmlspecialchars($curso_edicao['id']); ?>">
                 <?php endif; ?>

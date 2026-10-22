@@ -1,5 +1,6 @@
 <?php 
 // Cadastro público: usuários já autenticados seguem direto para o painel.
+
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 if (usuarioLogado()) {
@@ -11,9 +12,10 @@ $mensagem = '';
 $nome = '';
 $email = '';
 
-// CSRF é uma validação de segurança que impede que alguém envie o formulário de fora do site.
+// A proteção CSRF ajuda a recusar envios forjados por outro site usando a sessão do visitante; não substitui autenticação, autorização ou validação dos dados.
 // Ele cria um token secreto e exige que o navegador envie o mesmo valor na hora do cadastro.
 if (empty($_SESSION['csrf_cadastro'])) {
+    /* Gera um token aleatório para proteger o formulário contra CSRF. */
     $_SESSION['csrf_cadastro'] = bin2hex(random_bytes(32));
 }
 
@@ -25,6 +27,7 @@ if (!$conexao) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Aqui o PHP recebe os dados digitados pelo usuário no formulário.
     // O trim() remove espaços extras no início e no fim do texto.
+
     $nome = trim($_POST['nome'] ?? '');
     $email = trim($_POST['email'] ?? '');
     $senha = $_POST['senha'] ?? '';
@@ -33,8 +36,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Confere se o token recebido do formulário é igual ao token salvo na sessão.
     $csrf_valido = is_string($csrf_token) &&
+        /* Confere o token CSRF antes de processar o formulário. */
         hash_equals($_SESSION['csrf_cadastro'], $csrf_token);
     if (!$csrf_valido) {
+        /* Define o status HTTP 400 (pedido inválido). A mensagem de erro definida no fluxo será
+         * exibida no HTML; mudar o status sozinho não interrompe o script. */
         http_response_code(400);
         $mensagem = '<div class="alert alert-danger">Falha na validação de segurança. Atualize a página e tente novamente.</div>';
     } elseif (empty($nome) || empty($email) || empty($senha)) {
@@ -47,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // A confirmação da senha precisa ser igual à senha digitada.
         $mensagem = '<div class="alert alert-warning">As senhas digitadas não coincidem!</div>';
     } else if (strlen($senha) < 6) {
-        // A regra mínima de segurança é 6 caracteres para não deixar uma senha muito fraca.
+        // O cadastro público exige pelo menos 6 bytes de senha neste código; essa regra de tamanho, isolada, não garante uma senha forte.
         $mensagem = '<div class="alert alert-warning">A senha deve conter no mínimo 6 caracteres.</div>';
     } else if (buscarUsuarioPorEmail($conexao, $email)) {
         // Se o e-mail já existe, não deixamos cadastrar a mesma pessoa duas vezes.
@@ -56,6 +62,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Conta e cadastro acadêmico formam uma única operação: ou ambos são salvos,
         // ou a transação desfaz o que já tiver sido gravado.
         try {
+            /* Inicia a transação para salvar todas as alterações juntas ou desfazê-las em caso de
+             * erro. */
             $conexao->beginTransaction();
             $usuario_criado = cadastrarUsuario($conexao, $nome, $email, $senha, 'aluno');
 
@@ -69,15 +77,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             if (!$usuario_criado || !$aluno_criado) {
+                /* Desfaz as alterações não confirmadas, se houver uma transação ativa. */
                 $conexao->rollBack();
                 $mensagem = '<div class="alert alert-danger">Não foi possível concluir o cadastro. Confira se os dados já estão registrados e tente novamente.</div>';
             } else {
+                /* Confirma as alterações e libera os bloqueios da transação. */
                 $conexao->commit();
+
                 header("Location: login.php?sucesso=cadastrado");
                 exit;
             }
+        /* Captura tanto exceções quanto erros que implementam Throwable, permitindo desfazer o
+         * cadastro conjunto e registrar o problema no log. */
         } catch (Throwable $e) {
+            /* Só desfaz a operação se a transação ainda estiver ativa. */
             if ($conexao->inTransaction()) {
+                /* Desfaz as alterações não confirmadas, se houver uma transação ativa. */
                 $conexao->rollBack();
             }
             error_log('Erro ao criar conta e cadastro acadêmico: ' . $e->getMessage());
@@ -109,7 +124,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <?php echo $mensagem; ?>
 
 <form action="cadastrar.php" method="post">
-                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_cadastro'], ENT_QUOTES, 'UTF-8'); ?>">
+                <input type="hidden" name="csrf_token" value="<?php  echo htmlspecialchars($_SESSION['csrf_cadastro'], ENT_QUOTES, 'UTF-8'); ?>">
                 
                 <div class="form-group" style="margin-bottom: 1rem;">
                     <label for="nome">Nome Completo: *</label>
