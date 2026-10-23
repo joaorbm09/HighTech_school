@@ -379,6 +379,63 @@ UPDATE usuarios SET perfil = 'admin' WHERE email = 'seu-email@exemplo.com';
 
 4. Entre novamente. O menu administrativo permite gerenciar: **Usuários**, **Alunos**, **Cursos**, **Matrículas**, **Aulas** e **Provas**.
 
+## Limpeza do ambiente após os testes (opcional)
+
+Depois de concluir a avaliação, você pode remover o ambiente de teste. Se quiser continuar usando a aplicação, mantenha a instalação. Os comandos abaixo apagam definitivamente os dados e os arquivos locais; salve antes o que desejar manter e confira os nomes e caminhos usados na sua instalação.
+
+### 1. Encerrar a aplicação
+
+No terminal em que o servidor PHP está em execução, pressione **Ctrl+C**. Feche também as conexões abertas com o banco, saindo do console `psql` com `\q`.
+
+### 2. Excluir o banco e o usuário PostgreSQL
+
+Execute esta etapa somente se `hightech_school` e `admin_school` foram criados exclusivamente para este teste. Não remova um usuário utilizado por outras aplicações.
+
+No Windows (PowerShell), conecte como administrador ao banco de manutenção `postgres`, ajustando a versão instalada:
+
+```powershell
+& 'C:\Program Files\PostgreSQL\18\bin\psql.exe' -h 127.0.0.1 -U postgres -d postgres
+```
+
+No Linux, use:
+
+```bash
+sudo -u postgres psql -d postgres
+```
+
+Dentro do console `psql`, exclua primeiro o banco e depois o usuário:
+
+```sql
+DROP DATABASE hightech_school;
+DROP ROLE admin_school;
+\q
+```
+
+A exclusão do banco remove também todas as contas do site, matrículas e demais dados de teste. Se houver erro por conexões abertas, encerre-as antes de tentar novamente. Se a exclusão da role falhar por dependências em outros bancos, mantenha-a e confira onde ela é utilizada.
+
+### 3. Excluir a pasta clonada
+
+Apagar a pasta não remove o banco nem o usuário PostgreSQL. Execute esta etapa somente após salvar suas alterações e confirmar que está na raiz da cópia do projeto que deseja apagar.
+
+No Windows (PowerShell), confira o caminho e saia da pasta antes de removê-la. O nome abaixo corresponde ao clone do guia local; ajuste-o se você usou outro nome:
+
+```powershell
+Get-Location
+Set-Location ..
+Resolve-Path -LiteralPath '.\HighTech_school'
+Remove-Item -LiteralPath '.\HighTech_school' -Recurse -Confirm
+```
+
+No **Linux**, o guia usa a pasta `~/hightech_school`. Confira o caminho antes de confirmar a remoção:
+
+```bash
+cd ~
+realpath /var/www/html/hightech_school
+rm -rf /var/www/html/hightech_school
+```
+
+Os comandos de remoção solicitam confirmação. Confirme apenas se o caminho exibido corresponde à cópia de teste que deseja excluir. Mantenha o PHP e o PostgreSQL instalados se forem utilizados por outros projetos.
+
 ### Estrutura do projeto
 
 ```text
