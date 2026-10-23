@@ -262,7 +262,7 @@ Este roteiro instala a aplicação para demonstração ou avaliação em uma má
 No MobaXterm, use o terminal para entrar no servidor:
 
 ```bash
-ssh usuario@ip_do_servidor
+ssh usuario@ip_do_servidor -p 2222
 ```
 
 Exemplo:
