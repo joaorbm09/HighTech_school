@@ -289,7 +289,6 @@ sudo apt install git php php-pgsql postgresql postgresql-contrib
 
 ```bash
 cd ~
-cd /var/www/html/
 git clone https://github.com/joaorbm09/HighTech_school.git hightech_school
 cd ~/hightech_school
 ```
