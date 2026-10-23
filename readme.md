@@ -14,7 +14,7 @@ Para preparar a apresentação do projeto, consulte o [roteiro de apresentação
 - [Como executar o projeto localmente](#como-executar-o-projeto-localmente)
   - [Pré-requisitos](#pré-requisitos)
   - [Passo a passo de instalação](#passo-1-clonar-o-repositório)
-  - [Como criar o primeiro administrador](#primeiro-administrador)
+  - [Como criar o primeiro administrador](#passo-6-criar-uma-conta-e-acessar)
 - [Especificação de Requisitos de Software (SRS)](#especificação-de-requisitos-de-software)
   - [1. Introdução](#1-introdução)
   - [2. Descrição global](#2-descrição-global)
@@ -131,11 +131,125 @@ No console `psql`, atualize o e-mail da conta que você acabou de cadastrar:
 
 ```sql
 UPDATE usuarios SET perfil = 'admin' WHERE email = 'seu_email@exemplo.com';
-DELETE FROM usuarios WHERE email = 'admin@hightech.com';
 \q
 ```
 
-Confirme que o `UPDATE` alterou uma linha. O `DELETE` remove a conta administrativa de demonstração que vem no schema (`admin@hightech.com` / `admin123`); não a mantenha em uma máquina compartilhada. Com o perfil `admin`, novos menus de gestão serão liberados no cabeçalho: **Gestão Alunos**, **Gestão Cursos**, **Gestão de Aulas**, **Gestão de Provas** e **Matrículas**.
+Confirme que apareceu `UPDATE 1`. Saia da conta no site e entre novamente para atualizar a sessão. Nenhum administrador é criado automaticamente. Com o perfil `admin`, novos menus de gestão serão liberados no cabeçalho: **Gestão Alunos**, **Gestão Cursos**, **Gestão de Aulas**, **Gestão de Provas** e **Matrículas**.
+
+---
+
+## Guia para Windows (PowerShell)
+
+Se a aplicação já está instalada e funcionando, não recrie o banco e não importe o schema novamente. Use os passos de configuração e inicialização.
+
+### 1. Abrir o projeto e verificar os programas
+
+Abra a pasta do projeto no VS Code e escolha **Terminal → Novo Terminal** (PowerShell). Execute:
+
+```powershell
+Get-Location
+Test-Path .\database\schema.sql
+php -v
+php -m
+php --ini
+$psqlExe = 'C:\Program Files\PostgreSQL\18\bin\psql.exe'
+& $psqlExe --version
+```
+
+O Test-Path deve retornar True. Ajuste 18 no caminho se sua versão do PostgreSQL for outra. O operador & executa o programa cujo caminho contém espaços.
+
+Em php -m, confira PDO, pdo_pgsql e mbstring. Se faltarem extensões, abra o php.ini indicado por php --ini e habilite extension=pdo_pgsql e extension=mbstring, retirando o ponto e vírgula inicial dessas linhas. Reinicie o servidor PHP depois de salvar. Se php não for reconhecido, configure o PATH ou use o caminho completo, por exemplo & 'C:\php\php.exe' -v.
+
+### 2. Criar o banco somente na primeira instalação
+
+```powershell
+& $psqlExe -h 127.0.0.1 -U postgres
+```
+
+Digite a senha definida durante a instalação do PostgreSQL. Dentro do console psql, execute:
+
+```sql
+CREATE ROLE admin_school LOGIN;
+\password admin_school
+CREATE DATABASE hightech_school OWNER admin_school;
+\q
+```
+
+O comando \password solicita uma senha própria para a aplicação. Guarde-a para o passo 4. Se a role ou banco já existir, confira a instalação existente; não apague seus dados para repetir o guia.
+
+### 3. Importar as tabelas em um banco vazio
+
+No PowerShell, na raiz do projeto:
+
+```powershell
+$env:PGCLIENTENCODING = 'UTF8'
+& $psqlExe -h 127.0.0.1 -U admin_school -d hightech_school -v ON_ERROR_STOP=1 -1 -f '.\database\schema.sql'
+```
+
+Digite a senha de admin_school. O arquivo deve permanecer salvo em UTF-8. PGCLIENTENCODING evita que o psql interprete o arquivo como WIN1252; ON_ERROR_STOP interrompe no primeiro erro e -1 executa a importação em uma transação.
+
+Não use Get-Content para encaminhar o SQL por um pipe. Não execute o schema sobre um banco já instalado.
+
+Confira a conexão e os dois cursos iniciais:
+
+```powershell
+& $psqlExe -h 127.0.0.1 -U admin_school -d hightech_school -c 'SELECT nome FROM cursos ORDER BY id;'
+```
+
+### 4. Configurar e iniciar no mesmo terminal
+
+```powershell
+$env:DB_HOST = '127.0.0.1'
+$env:DB_PORT = '5432'
+$env:DB_NAME = 'hightech_school'
+$env:DB_USER = 'admin_school'
+$senhaBanco = Read-Host 'Senha de admin_school' -AsSecureString
+$env:DB_PASS = [System.Net.NetworkCredential]::new('', $senhaBanco).Password
+php -S localhost:8000
+```
+
+Abra http://localhost:8000. Mantenha o terminal aberto; Ctrl+C encerra o servidor. Essas variáveis valem para o terminal atual. Ao abrir outro terminal, repita este passo. O PHP precisa receber a senha como texto no ambiente, mas Read-Host evita que ela apareça na tela ou no histórico do comando.
+
+### 5. Criar o primeiro administrador
+
+Cadastre sua conta em http://localhost:8000/login/cadastrar.php. Em outro terminal PowerShell:
+
+```powershell
+& 'C:\Program Files\PostgreSQL\18\bin\psql.exe' -h 127.0.0.1 -U admin_school -d hightech_school
+```
+
+No console psql, substitua o e-mail pelo usado no cadastro:
+
+```sql
+UPDATE usuarios SET perfil = 'admin' WHERE LOWER(email) = LOWER('seu_email@exemplo.com');
+\q
+```
+
+O resultado deve ser UPDATE 1. Saia da conta no site e entre novamente. O usuário admin_school conecta ao banco; ele não é uma conta do site.
+
+### 6. Atualizar uma instalação que já tinha o administrador de demonstração
+
+Primeiro atualize database/connect.php para a versão que não cria contas. Cadastre e promova sua própria conta pelo passo anterior e confirme que consegue acessar a gestão.
+
+Depois, se admin@hightech.com for apenas a conta de demonstração, remova-a no console psql:
+
+```sql
+DELETE FROM usuarios WHERE email = 'admin@hightech.com' AND perfil = 'admin';
+```
+
+Não execute esse DELETE se esse for o e-mail da conta que você quer manter. A atualização dos arquivos não exclui contas existentes. Com o connect.php corrigido, a conta removida não é recriada ao navegar.
+
+### Problemas comuns
+
+| Mensagem | O que conferir |
+| --- | --- |
+| psql não reconhecido | Use o caminho completo com & e ajuste a versão instalada. |
+| Connection refused | Verifique se o serviço PostgreSQL está iniciado no aplicativo Serviços do Windows e se a porta é 5432. |
+| Password authentication failed | Confira o usuário e a senha; a senha do site é diferente da senha do banco. |
+| Erro WIN1252 / UTF8 | Salve schema.sql em UTF-8 e use PGCLIENTENCODING antes da importação com -f. |
+| Relation already exists | O banco já tem tabelas. Não repita o schema; confira a instalação existente. |
+| Could not find driver | Habilite pdo_pgsql no php.ini usado pelo terminal. |
+| Porta 8000 ocupada | Encerre o servidor anterior ou use php -S localhost:8001 e abra a porta 8001. |
 
 ---
 
@@ -231,7 +345,7 @@ export DB_USER='admin_school'
 export DB_PASS='admin123'
 ```
 
-As variáveis definidas com `export` ficam disponíveis apenas para esse terminal e processos iniciados por ele. Não compartilhe o terminal nem salve as senhas em arquivos públicos. Este roteiro cria a conta administrativa pelo cadastro e promoção descritos no passo 9; por isso, não defina `APP_ADMIN_EMAIL` nem `APP_ADMIN_PASSWORD` aqui. Se optar por defini-las, a aplicação poderá criar outra conta administrativa automaticamente na primeira conexão. Em Apache/PHP-FPM, configure as variáveis de banco no ambiente do serviço; exportá-las no SSH não as disponibiliza automaticamente para esses serviços.
+As variáveis definidas com `export` ficam disponíveis apenas para esse terminal e processos iniciados por ele. Não compartilhe o terminal nem salve as senhas em arquivos públicos. A conexão não cria contas administrativas e não utiliza `APP_ADMIN_EMAIL` ou `APP_ADMIN_PASSWORD`. Em Apache/PHP-FPM, configure as variáveis de banco no ambiente do serviço; exportá-las no SSH não as disponibiliza automaticamente para esses serviços.
 
 ### 8. Iniciar a aplicação no servidor
 

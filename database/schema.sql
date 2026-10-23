@@ -11,16 +11,6 @@ CREATE TABLE usuarios (
     criado_em TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Usuário administrativo padrão para uso local e testes.
-INSERT INTO usuarios (nome, email, senha, perfil)
-VALUES (
-    'Administrador',
-    'admin@hightech.com',
-    '$2y$12$k6mIf6rWAxy6y9G2A085j.Gaj0H7atATtkLR3XPWf/Xq/YlfQpCCm',
-    'admin'
-)
-ON CONFLICT (email) DO NOTHING;
-
 -- Dados acadêmicos do aluno; o índice também impede e-mails repetidos sem
 -- diferenciar letras maiúsculas de minúsculas.
 CREATE TABLE alunos (
