@@ -359,7 +359,7 @@ cd ~/hightech_school
 Em seguida, acesse no navegador:
 
 ```text
-http://<IP_DO_SERVIDOR>
+http://<IP_DO_SERVIDOR>/Hightech_school
 ```
 
 O servidor embutido é destinado a desenvolvimento e avaliação, não a produção. Não o exponha diretamente à internet. Para uma publicação real, use um servidor web/PHP-FPM configurado com HTTPS, permissões e variáveis de ambiente próprias; simplesmente copiar os arquivos para `/var/www/html` não configura esses componentes.
