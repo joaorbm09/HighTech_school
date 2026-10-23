@@ -12,8 +12,6 @@ $port = getenv('DB_PORT') ?: '5432';
 $dbname = getenv('DB_NAME') ?: 'hightech_school';
 $user = getenv('DB_USER') ?: 'admin_school';
 $password = getenv('DB_PASS') ?: 'admin123';
-$admin_email = getenv('APP_ADMIN_EMAIL') ?: 'admin@hightech.com';
-$admin_password = getenv('APP_ADMIN_PASSWORD') ?: 'admin123';
 
 try {
     // PDO é uma classe do PHP que ajuda a conversar com bancos de dados.
@@ -45,35 +43,4 @@ try {
     $conexao = null;
 }
 
-// Cria o administrador padrão somente se a conta ainda não existir.
-// Assim, a aplicação não redefine a senha de um administrador a cada página visitada.
-if ($conexao) {
-    try {
-        $email_admin_normalizado = strtolower(trim($admin_email));
-        $stmt = $conexao->prepare(
-            'SELECT 1 FROM usuarios WHERE LOWER(email) = :email LIMIT 1'
-        );
-        $stmt->execute(['email' => $email_admin_normalizado]);
-
-        /* A consulta anterior seleciona 1 apenas quando encontra o e-mail. Sem linha, fetchColumn
-         * devolve false e o bloco cria a conta administrativa padrão; uma conta já existente não
-         * recebe uma nova senha aqui. */
-        if (!$stmt->fetchColumn()) {
-            /* Armazena somente o hash da senha, nunca a senha em texto puro. */
-            $admin_hash = password_hash($admin_password, PASSWORD_BCRYPT);
-            $stmt = $conexao->prepare(
-
-                "INSERT INTO usuarios (nome, email, senha, perfil)
-                 VALUES ('Administrador', :email, :senha, 'admin')
-                 ON CONFLICT (email) DO NOTHING"
-            );
-            $stmt->execute([
-                'email' => $email_admin_normalizado,
-                'senha' => $admin_hash
-            ]);
-        }
-    } catch (PDOException $e) {
-        // Uma falha ao criar a conta padrão não deve apagar uma conexão válida com o banco.
-        error_log('Erro ao verificar/criar administrador padrão: ' . $e->getMessage());
-    }
-}
+// A conexão não cria contas. Cadastre um aluno e promova-o pelo banco conforme o README.
